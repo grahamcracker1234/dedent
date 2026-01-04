@@ -1,52 +1,17 @@
-'''
-Dedent is a library for dedenting text.
+"""
+A library for dedenting text with support for t-string interpolations.
 
-Port of the TypeScript [dedent](https://github.com/dmnd/dedent) library. Preferred over
-`textwrap.dedent` because it uses `string.templatelib` and t-strings for better handling of
-interpolations, for example, to align the string output of multiline interpolations.
+This module provides a `dedent` function that removes common leading whitespace from multiline
+strings, similar to `textwrap.dedent` but with enhanced support for t-strings (Template objects)
+and interpolated values.
 
-```python
-from dedent import dedent
-
-groceries = dedent(t"""
-    - apples
-    - bananas
-    - cherries
-""")
-
-without_align = dedent(t"""
-    List without align_values (default):
-        {groceries}
-    Done.
-""")
-
-with_align = dedent(
-    t"""
-        List with align_values: true
-            {groceries}
-        Done.
-    """,
-    align_values=True,
-)
-
-print(without_align)
-print("---")
-print(with_align)
-
-# Output:
-# List without align_values (default):
-#     - apples
-# - bananas
-# - cherries
-# Done.
-# ---
-# List with align_values: true
-# 	- apples
-# 	- bananas
-# 	- cherries
-# Done.
-```
-'''
+Key features:
+- Removes minimum common indentation from all lines
+- Supports t-strings with interpolations using `string.templatelib`
+- Aligns multiline interpolated values to match surrounding indentation
+- Per-value alignment control via format spec directives (`{value:align}`, `{value:noalign}`)
+- Combines dedent directives with standard Python format specs
+"""
 
 from ._dedent import dedent
 

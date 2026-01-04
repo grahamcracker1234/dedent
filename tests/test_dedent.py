@@ -1,6 +1,14 @@
+from typing import Final
+
 import pytest
 
 from dedent import dedent
+
+GROCERIES: Final = dedent("""
+    - apples
+    - bananas
+    - cherries
+""")
 
 
 def test_literal():
@@ -60,10 +68,11 @@ def test_format_spec():
     total = 123
     discount = 0.123456789
     header = "Receipt"
+    decimals = 2
     output = dedent(t"""
         {header:=^17}
         - Total: {total:06d}
-        - Discount: {discount:.2%}
+        - Discount: {discount:.{decimals}%}
     """)
     assert output == "=====Receipt=====\n- Total: 000123\n- Discount: 12.35%"
 
@@ -89,33 +98,22 @@ def test_strip_default():
 
 
 def test_no_align_default():
-    groceries = dedent("""
-        - apples
-        - bananas
-        - cherries
-    """)
     input_string = t"""
         List:
-            {groceries}
+            {GROCERIES}
         ---
     """
 
     output = dedent(input_string)
     assert output == "List:\n    - apples\n- bananas\n- cherries\n---"
-
     assert output == dedent(input_string, align=False), "align=False should be the default"
 
 
 def test_align():
-    groceries = dedent("""
-        - apples
-        - bananas
-        - cherries
-    """)
     output = dedent(
         t"""
             List:
-                {groceries}
+                {GROCERIES}
             ---
         """,
         align=True,
@@ -124,15 +122,13 @@ def test_align():
 
 
 def test_align_ignores_non_multiline_formatted_outputput():
-    groceries = dedent("""
-        - apples
-    """)
-    assert "\n" not in groceries
+    grocery, *_ = GROCERIES.splitlines()
+    assert "\n" not in grocery
 
     output = dedent(
         t"""
             List:
-                {groceries}
+                {grocery}
             ---
         """,
         align=True,
@@ -141,10 +137,76 @@ def test_align_ignores_non_multiline_formatted_outputput():
 
 
 def test_align_no_indent():
-    groceries = dedent("""
-        - apples
-        - bananas
-        - cherries
-    """)
-    result = dedent(t"{groceries}", align=True)
+    result = dedent(t"{GROCERIES}", align=True)
     assert result == "- apples\n- bananas\n- cherries"
+
+
+def test_align_override():
+    output = dedent(
+        t"""
+            List:
+                {GROCERIES:align}
+            ---
+        """,
+        align=False,
+    )
+    assert output == "List:\n    - apples\n    - bananas\n    - cherries\n---"
+
+
+def test_no_align_override():
+    output = dedent(
+        t"""
+            List:
+                {GROCERIES:noalign}
+            ---
+        """,
+        align=True,
+    )
+    assert output == "List:\n    - apples\n- bananas\n- cherries\n---"
+
+
+def test_align_override_with_format_spec():
+    total = 123
+    output = dedent(
+        t"""
+            Total: {total:align:06d}
+            Total: {total:06d:align}
+        """,
+        align=False,
+    )
+    assert output == "Total: 000123\nTotal: 000123"
+
+    output = dedent(
+        t"""
+            List:
+                {GROCERIES:\n^{len(GROCERIES) + 2}:align}
+                {GROCERIES:align:\n^{len(GROCERIES) + 2}}
+            ---
+        """,
+        align=False,
+    )
+    assert (
+        output
+        == "List:\n    \n    - apples\n    - bananas\n    - cherries\n    \n    \n    - apples\n    - bananas\n    - cherries\n    \n---"  # noqa: E501
+    )
+
+
+def test_mixed_align_overrides():
+    input_string = t"""
+        List:
+            {GROCERIES:align}
+        Other:
+            {GROCERIES:noalign}
+        ---
+    """
+
+    output = dedent(input_string)
+    assert (
+        output
+        == "List:\n    - apples\n    - bananas\n    - cherries\nOther:\n    - apples\n- bananas\n- cherries\n---"  # noqa: E501
+    )
+
+
+def test_unknown_format_spec():
+    with pytest.raises(ValueError, match="Invalid format specifier"):
+        _ = dedent(t"{GROCERIES:algn}")  # misspelled "align"
