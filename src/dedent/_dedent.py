@@ -94,6 +94,6 @@ def dedent(
         )  # fmt: skip
 
     if strip:
-        formatted_string = formatted_string.strip("\n")
+        formatted_string = formatted_string.strip()
 
     return formatted_string

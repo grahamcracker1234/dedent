@@ -56,6 +56,18 @@ def test_unsupported_type():
         _ = dedent(123)  # pyright: ignore[reportArgumentType]
 
 
+def test_format_spec():
+    total = 123
+    discount = 0.123456789
+    header = "Receipt"
+    output = dedent(t"""
+        {header:=^17}
+        - Total: {total:06d}
+        - Discount: {discount:.2%}
+    """)
+    assert output == "=====Receipt=====\n- Total: 000123\n- Discount: 12.35%"
+
+
 def test_no_strip():
     output = dedent(
         """
@@ -136,15 +148,3 @@ def test_align_no_indent():
     """)
     result = dedent(t"{groceries}", align=True)
     assert result == "- apples\n- bananas\n- cherries"
-
-
-def test_format_spec():
-    total = 123
-    discount = 0.123456789
-    header = "Receipt"
-    output = dedent(t"""
-        {header:=^17}
-        - Total: {total:06d}
-        - Discount: {discount:.2%}
-    """)
-    assert output == "=====Receipt=====\n- Total: 000123\n- Discount: 12.35%"
