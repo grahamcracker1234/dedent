@@ -1,0 +1,50 @@
+version: "3"
+
+tasks:
+  check:format:
+    desc: "Check formatting with Ruff"
+    cmd: uv run ruff format --check {{.CLI_ARGS}}
+
+  fix:format:
+    desc: "Fix formatting with Ruff"
+    cmd: uv run ruff format {{.CLI_ARGS}}
+
+  check:lint:
+    desc: "Linting with Ruff"
+    cmd: uv run ruff check {{.CLI_ARGS}}
+
+  fix:lint:
+    desc: "Fix linting with Ruff"
+    cmd: uv run ruff check --fix {{.CLI_ARGS}}
+
+  check:types:
+    desc: "Type checking with basedpyright"
+    cmd: uv run basedpyright {{.CLI_ARGS}}
+
+  check:tests:
+    desc: "Testing with pytest"
+    cmd: uv run pytest {{.CLI_ARGS}}
+
+  check:tests:coverage:
+    desc: "Testing with pytest coverage"
+    cmd: pwd && uv run pytest --cov=src --cov-report=term-missing {{.CLI_ARGS}}
+
+  check:tests:live:
+    desc: "Live service testing with pytest"
+    cmd: uv run pytest -m live {{.CLI_ARGS}}
+
+  check:
+    desc: "Run all checks"
+    vars:
+      COVERAGE: "{{.COVERAGE | default false}}"
+    cmds:
+      - task: check:format
+      - task: check:lint
+      - task: check:types
+      - task: '{{if eq .COVERAGE "true"}}check:tests:coverage{{else}}check:tests{{end}}'
+
+  fix:
+    desc: "Run all fixes"
+    cmds:
+      - task: fix:format
+      - task: fix:lint

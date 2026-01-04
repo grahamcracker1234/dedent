@@ -1,0 +1,127 @@
+[project]
+name = "dedent"
+version = "0.1.0"
+description = "A utility package for dedenting text"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.37.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+preview = true
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = [
+    "D203",   # Conflicts with D211
+    "D212",   # Conflicts with D213
+    "SLF001", # Conflicts with basedpyright[reportPrivateUsage]
+    # Formatter conflicting rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+]
+select = [
+    "FAST",  # FastAPI
+    "YTT",   # flake8-2020
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit
+    "BLE",   # flake8-blind-except
+    "FBT",   # flake8-boolean-trap
+    "B",     # flake8-bugbear
+    "A",     # flake8-builtins
+    "COM",   # flake8-commas
+    "C4",    # flake8-comprehensions
+    "DTZ",   # flake8-datetimez
+    "T10",   # flake8-debugger
+    "EM",    # flake8-errmsg
+    "EXE",   # flake8-executable
+    "FA",    # flake8-future-annotations
+    "INT",   # flake8-gettext
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "LOG",   # flake8-logging
+    "G",     # flake8-logging-format
+    "INP",   # flake8-no-pep420
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "SLF",   # flake8-self
+    "SIM",   # flake8-simplify
+    "SLOT",  # flake8-slot
+    "TID",   # flake8-tidy-imports
+    "TD",    # flake8-todo
+    "TC",    # flake8-type-checking
+    "ARG",   # flake8-unused-arguments
+    "PTH",   # flake8-use-pathlib
+    "FLY",   # flynt
+    "I",     # isort
+    "C90",   # mccabe
+    "NPY",   # NumPy-specific rules
+    "PD",    # pandas-vet
+    "N",     # pep8-naming
+    "PERF",  # Perflint
+    "E",     # pycodestyle
+    "W",     # pycodestyle
+    "DOC",   # pydoclint
+    "D",     # pydocstyle
+    "F",     # Pyflakes
+    "PGH",   # pygrep-hooks
+    "PL",    # Pylint
+    "PLC",   # Pylint: Convention
+    "PLE",   # Pylint: Error
+    "PLR",   # Pylint: Refactor
+    "PLW",   # Pylint: Warning
+    "UP",    # pyupgrade
+    "FURB",  # refurb
+    "RUF",   # Ruff-specific rules
+    "TRY",   # tryceratops
+
+]
+pydocstyle.convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"*.py" = ["PYI"]
+"**/tests/**/*.py" = [
+    "S101",    # assert
+    "PLR2004", # magic-value-comparison
+    "INP001",  # implicit-namespace-package
+    "D",       # pydocstyle
+    "DOC",     # pydoclint
+    "ANN",     # flake8-annotations
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = ["--import-mode=importlib"]
