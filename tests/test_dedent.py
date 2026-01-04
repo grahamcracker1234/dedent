@@ -4,19 +4,19 @@ from dedent import dedent
 
 
 def test_literal():
-    out = dedent("""
+    output = dedent("""
         hello
           world
     """)
-    assert out == "hello\n  world"
+    assert output == "hello\n  world"
 
 
 def test_template():
-    out = dedent(t"""
+    output = dedent(t"""
         hello
           world
     """)
-    assert out == "hello\n  world"
+    assert output == "hello\n  world"
 
 
 def test_bad_format():
@@ -26,17 +26,17 @@ def test_bad_format():
     We require either a literal string or a template.
     """
     name = "python"
-    out = dedent(f"""
+    output = dedent(f"""
         hello
           {name}
     """)
-    assert out == "hello\n  python"
+    assert output == "hello\n  python"
 
-    out = dedent(f"""
+    output = dedent(f"""
         hello
           {123}
     """)  # pyright: ignore[reportArgumentType]
-    assert out == "hello\n  123"
+    assert output == "hello\n  123"
 
     def wrapped(value: str) -> str:
         return dedent(f"""
@@ -44,8 +44,8 @@ def test_bad_format():
               {value}
         """)  # pyright: ignore[reportArgumentType]
 
-    out = wrapped("python")
-    assert out == "hello\n  python"
+    output = wrapped("python")
+    assert output == "hello\n  python"
 
 
 def test_unsupported_type():
@@ -57,27 +57,41 @@ def test_unsupported_type():
 
 
 def test_no_strip():
-    out = dedent(
+    output = dedent(
         """
             hello
         """,
         strip=False,
     )
-    assert out == "\nhello\n"
+    assert output == "\nhello\n"
 
 
-def test_no_align():
+def test_strip_default():
+    input_string = """
+        hello
+    """
+
+    output = dedent(input_string)
+    assert output == "hello"
+    assert output == dedent(input_string, strip=True), "strip=True should be the default"
+
+
+def test_no_align_default():
     groceries = dedent("""
         - apples
         - bananas
         - cherries
     """)
-    out = dedent(t"""
-        List without align (default):
+    input_string = t"""
+        List:
             {groceries}
-        Done.
-    """)
-    assert out == ("List without align (default):\n    - apples\n- bananas\n- cherries\nDone.")
+        ---
+    """
+
+    output = dedent(input_string)
+    assert output == "List:\n    - apples\n- bananas\n- cherries\n---"
+
+    assert output == dedent(input_string, align=False), "align=False should be the default"
 
 
 def test_align():
@@ -86,39 +100,51 @@ def test_align():
         - bananas
         - cherries
     """)
-    out = dedent(
+    output = dedent(
         t"""
-            List with align: true
+            List:
                 {groceries}
-            Done.
+            ---
         """,
         align=True,
     )
-    assert out == ("List with align: true\n    - apples\n    - bananas\n    - cherries\nDone.")
+    assert output == "List:\n    - apples\n    - bananas\n    - cherries\n---"
 
 
-def test_align_ignores_non_multiline_formatted_output():
+def test_align_ignores_non_multiline_formatted_outputput():
     groceries = dedent("""
         - apples
     """)
-    out = dedent(
+    assert "\n" not in groceries
+
+    output = dedent(
         t"""
-            List with align: true
+            List:
                 {groceries}
-            Done.
+            ---
         """,
         align=True,
     )
-    assert out == ("List with align: true\n    - apples\nDone.")
+    assert output == "List:\n    - apples\n---"
+
+
+def test_align_no_indent():
+    groceries = dedent("""
+        - apples
+        - bananas
+        - cherries
+    """)
+    result = dedent(t"{groceries}", align=True)
+    assert result == "- apples\n- bananas\n- cherries"
 
 
 def test_format_spec():
     total = 123
     discount = 0.123456789
     header = "Receipt"
-    out = dedent(t"""
+    output = dedent(t"""
         {header:=^17}
         - Total: {total:06d}
         - Discount: {discount:.2%}
     """)
-    assert out == ("=====Receipt=====\n- Total: 000123\n- Discount: 12.35%")
+    assert output == "=====Receipt=====\n- Total: 000123\n- Discount: 12.35%"

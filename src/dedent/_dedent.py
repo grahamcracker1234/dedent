@@ -2,15 +2,17 @@ import re
 from string.templatelib import Interpolation, Template, convert
 from typing import TYPE_CHECKING, LiteralString, cast
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 _INDENTED = re.compile(r"^(\s+)")
 _INDENTED_WITH_CONTENT = re.compile(r"^(\s+)\S+")
 
 
 def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
-    if not (m := pattern.match(string)):
-        return None
-
-    return m.group(1)
+    if m := pattern.match(string):
+        return m.group(1)
+    return None
 
 
 def _render(interpolation: Interpolation) -> str:
@@ -67,17 +69,17 @@ def dedent(
         The dedented template string.
     """
     match string:
-        case str():
-            transformed = string
-        case Template():
-            transformed = ""
-            for item in string:
-                transformed += _handle_item(item, preceding_text=transformed, align=align)
-        case _ if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
-            message = f"Unsupported template type: {type(string)}"  # pyright: ignore[reportUnreachable]
+        case str() as formatted_string:
+            pass
+        case Template() as template:
+            formatted_string = ""
+            for item in template:
+                formatted_string += _handle_item(item, preceding_text=formatted_string, align=align)
+        case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
+            message = f"Unsupported template type: {type(unknown)}"  # pyright: ignore[reportUnreachable]
             raise TypeError(message)
 
-    lines = transformed.splitlines()
+    lines: Sequence[str] = formatted_string.splitlines()
     min_indent = None
 
     for line in lines:
@@ -86,11 +88,12 @@ def dedent(
             min_indent = min(min_indent or indent_size, indent_size)
 
     if min_indent is not None:
-        transformed = "\n".join(
-            line[min_indent:] if line and line.startswith((" ", "\t")) else line for line in lines
-        )
+        formatted_string = "\n".join(
+            line[min_indent:] if line and line.startswith((" ", "\t")) else line
+            for line in lines
+        )  # fmt: skip
 
     if strip:
-        transformed = transformed.strip()
+        formatted_string = formatted_string.strip("\n")
 
-    return transformed
+    return formatted_string
