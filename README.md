@@ -1,34 +1,125 @@
-# LLM Utils
+# dedent
 
-A utility package for working with various LLM providers (OpenAI, Anthropic, Google GenAI).
+It's like `textwrap.dedent`, but actually functional.
 
-## Features
+> Only supports Python 3.14+ due to the use of t-strings.
 
-- Multi-provider LLM interaction functions
-- Image processing utilities
-- Token counting and management
-- Structured response parsing with schema validation
-- Type-safe data structures using Pydantic and dataclasses
+## Table of Contents
 
-## Installation
+- [Why `textwrap.dedent` Falls Short](#why-textwrapdedent-falls-short)
 
-```bash
-uv sync --dev
-```
+## Why `textwrap.dedent` Falls Short
 
-## Usage
+If you're here, then you're probably already familiar with the shortcomings of `textwrap.dedent`. But regardless, let's spell it out for the sake of completeness. For example, say we want to create a nicely formatted shopping list that includes some groceries:
 
 ```python
-import llm
+from textwrap import dedent
 
-# Simple query
-response = llm.responses.query("What is the capital of France?")
+groceries = dedent("""
+    - apples
+    - bananas
+    - cherries
+""")
 
-# Structured response with schema
-@dataclass
-class Capital:
-    capital: str
-    country: str
+shopping_list = dedent(f"""
+    Groceries:
+        {groceries}
+    ---
+""")
 
-response, conversation = llm.responses.chat("What is the capital of France?", schema=Capital)
+print(shopping_list)
+```
+
+```plaintext
+
+    Groceries:
+
+- apples
+- bananas
+- cherries
+
+    ---
+```
+
+Wait, that's not what we wanted. We accidentally included leading and trailing newlines from the groceries string. Now, we *could* do that manually by removing, escaping, or stripping the newlines, but it's either easy to forget, difficult to read, or unnecessarily verbose.
+
+```python
+# Removing the newlines
+groceries = dedent("""    - apples
+    - bananas
+    - cherries""")
+
+# Escaping the newlines
+groceries = dedent("""\
+    - apples
+    - bananas
+    - cherries\
+""")
+
+# Stripping the newlines
+groceries = dedent("""
+    - apples
+    - bananas
+    - cherries
+""".strip("\n"))
+```
+
+```plaintext
+    Groceries:
+        - apples
+- bananas
+- cherries
+    ---
+```
+
+Uh oh, something is still wrong; the indentation is not correct at all. The interpolation happens too early. When we use an f-string with `textwrap.dedent`, the replacement occurs before dedenting can take place. Notice how only the first line of `groceries` is properly indented relative to the surrounding text? The subsequent lines lose their indentation because f-strings interpolate immediately, injecting the `groceries` string before `dedent` can process the overall structure.
+
+Sure, we could manually adjust the indentation with a bit of string manipulation, but that's a pain to read, write, and maintain.
+
+```python
+from textwrap import dedent
+
+groceries = dedent("""
+    - apples
+    - bananas
+    - cherries
+""".strip("\n"))
+
+manual_groceries = ("\n" + " " * 8).join(groceries.splitlines())
+
+shopping_list = dedent(f"""
+    Groceries:
+        {manual_groceries}
+    ---
+""".strip("\n"))
+
+print(shopping_list)
+```
+
+`dedent` solves these problems and more:
+
+```python
+from dedent import dedent
+
+groceries = dedent("""
+    - apples
+    - bananas
+    - cherries
+""")
+
+shopping_list = dedent(t"""
+    Groceries:
+        {groceries:align}
+    ---
+""")
+
+print(shopping_list)
+```
+
+```plaintext
+Groceries:
+    - apples
+    - bananas
+    - cherries
+---
 ```
