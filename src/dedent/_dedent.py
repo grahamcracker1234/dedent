@@ -13,7 +13,7 @@ _INDENTED: Final = re.compile(r"^(\s+)")
 _INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
 
 
-class DedentSpec(StrEnum):
+class _DedentSpec(StrEnum):
     """Enumeration of dedent-specific format spec directives."""
 
     ALIGN = auto()
@@ -60,14 +60,14 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
 
     specs = format_spec.split(":")
 
-    pred = set(DedentSpec).__contains__
+    pred = set(_DedentSpec).__contains__
     dedent_specs, other_specs = _partition(specs, pred)
     *_, dedent_spec = list(dedent_specs) or [None]
 
     format_spec = ":".join(other_specs)
 
     align_override = (
-        DedentSpec(dedent_spec) == DedentSpec.ALIGN if dedent_spec is not None else None
+        _DedentSpec(dedent_spec) == _DedentSpec.ALIGN if dedent_spec is not None else None
     )
     return format_spec, align_override
 
