@@ -6,7 +6,165 @@ It's like `textwrap.dedent`, but actually functional.
 
 ## Table of Contents
 
+- [Usage](#usage)
+- [Options](#options)
+  - [`align`](#align)
+  - [`strip`](#strip)
 - [Why `textwrap.dedent` Falls Short](#why-textwrapdedent-falls-short)
+
+## Usage
+
+```bash
+pip install dedent
+```
+
+```python
+from dedent import dedent
+
+# Works with regular strings, like textwrap.dedent, but automatically stripping whitespace.
+message = dedent("""
+    Hello,
+    World!
+""")
+print(message)
+# Hello,
+# World!
+
+# Works with t-strings for deferred interpolation
+name = "Alice"
+greeting = dedent(t"""
+    Hello, {name}!
+    Welcome to the party.
+""")
+print(greeting)
+# Hello, Alice!
+# Welcome to the party.
+
+# Nested multiline strings align correctly with :align
+items = dedent("""
+    - apples
+    - bananas
+""")
+shopping_list = dedent(t"""
+    Groceries:
+        {items:align}
+    ---
+""")
+print(shopping_list)
+# Groceries:
+#     - apples
+#     - bananas
+# ---
+```
+
+## Options
+
+### `align`
+
+When an interpolation evaluates to a multiline string, only its first line is placed where the `{...}` appears. Subsequent lines keep whatever indentation they already had (often none), so they can appear "shifted left". Alignment fixes this by indenting subsequent lines to match the first.
+
+#### Format Spec Directives (Recommended)
+
+The recommended way to control alignment is via format spec directives. This gives you fine-grained, per-value control directly where the interpolation occurs:
+
+- `{value:align}` - Align this multiline value to the current indentation
+- `{value:noalign}` - Disable alignment for this value [^1]
+- `{value:align:06d}` - Combine with other format specs [^2]
+
+```python
+from dedent import dedent
+
+items = dedent("""
+    - one
+    - two
+""")
+
+result = dedent(t"""
+    Aligned:
+        {items:align}
+    Not aligned:
+        {items}
+""")
+print(result)
+```
+
+```plaintext
+Aligned:
+    - one
+    - two
+Not aligned:
+    - one
+- two
+```
+
+[^1]: Only has an effect when using the [`align=True` argument](#align-argument).
+
+[^2]: This rarely makes sense, unless you are also using custom format specifiers, but nonetheless works.
+
+#### `align` Argument
+
+Alternatively, pass `align=True` to enable alignment globally for all interpolations. Useful when you have many interpolations that all need alignment. Format spec directives override this.
+
+```python
+from dedent import dedent
+
+items = dedent("""
+    - one
+    - two
+""")
+
+result = dedent(
+    t"""
+        List 1:
+            {items}
+        List 2:
+            {items}
+        ---
+    """,
+    align=True,
+)
+
+print(result)
+```
+
+```plaintext
+List 1:
+    - one
+    - two
+List 2:
+    - one
+    - two
+---
+```
+
+### `strip`
+
+By default, `dedent` will strip leading and trailing whitespace from the result.
+
+This can be disabled by setting `strip=False`.
+
+```python
+from dedent import dedent
+
+strip = dedent("""
+    hello!
+""")
+
+no_strip = dedent(
+    """
+        hello!
+    """,
+    strip=False
+)
+
+print(f"{strip=}")
+print(f"{no_strip=}")
+```
+
+```plaintext
+strip='hello!'
+no_strip='\nhello!\n'
+```
 
 ## Why `textwrap.dedent` Falls Short
 
