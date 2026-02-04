@@ -15,7 +15,11 @@ It's like `textwrap.dedent`, but actually functional.
 ## Usage
 
 ```bash
-pip install dedent
+# Using uv (Recommended)
+uv add git+https://github.com/grahamcracker1234/dedent.git
+
+# Using pip
+pip install git+https://github.com/grahamcracker1234/dedent.git 
 ```
 
 ```python
