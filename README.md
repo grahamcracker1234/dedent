@@ -15,7 +15,8 @@ It's like `textwrap.dedent`, but actually functional.
 ## Usage
 
 ```bash
-pip install dedent
+uv add git+https://github.com/grahamcracker1234/dedent.git       # uv
+pip install git+https://github.com/grahamcracker1234/dedent.git  # pip
 ```
 
 ```python
