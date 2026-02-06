@@ -66,10 +66,10 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
 
     format_spec = ":".join(other_specs)
 
-    align_override = (
-        _DedentSpec(dedent_spec) == _DedentSpec.ALIGN if dedent_spec is not None else None
-    )
-    return format_spec, align_override
+    if dedent_spec is None:
+        return format_spec, None
+
+    return format_spec, _DedentSpec(dedent_spec) == _DedentSpec.ALIGN
 
 
 def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
@@ -121,7 +121,7 @@ def _handle_item(
     Process a single template item (string or interpolation).
 
     For string items, returns them as-is. For interpolations, converts the value, applies format
-    specifiers (extracting dedent directives), and optionally aligns multiline output.
+    specifications (extracting dedent directives), and optionally aligns multiline output.
 
     Args:
         item: Either a string literal or an Interpolation object.
@@ -195,10 +195,10 @@ def dedent(
                 initial="",
             )
         case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
-            message = f"Unsupported template type: {type(unknown)}"  # pyright: ignore[reportUnreachable]
+            message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
             raise TypeError(message)
 
-    lines: Sequence[str] = formatted_string.splitlines()
+    lines: Sequence[str] = formatted_string.split("\n")
     min_indent = None
 
     for line in lines:
