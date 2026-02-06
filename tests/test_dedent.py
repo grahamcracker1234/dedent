@@ -86,6 +86,9 @@ def test_no_strip():
     )
     assert output == "\nhello\n"
 
+    output = dedent("\n    hello!\n", strip=False)
+    assert output == "\nhello!\n"
+
 
 def test_strip_default():
     input_string = """
@@ -208,5 +211,5 @@ def test_mixed_align_overrides():
 
 
 def test_unknown_format_spec():
-    with pytest.raises(ValueError, match="Invalid format specifier"):
+    with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
         _ = dedent(t"{GROCERIES:algn}")  # misspelled "align"
