@@ -103,7 +103,7 @@ Not aligned:
 
 [^1]: Only has an effect when using the [`align=True` argument](#align-argument).
 
-[^2]: This rarely makes sense, unless you are also using custom format specifiers, but nonetheless works.
+[^2]: This rarely makes sense, unless you are also using custom format specifications, but nonetheless works.
 
 #### `align` Argument
 
