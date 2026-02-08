@@ -140,7 +140,7 @@ class TestStrip:
             """
             foo
             bar
-            """.replace("-", " "),
+            """,
             strip=strip,
         )
 
