@@ -14,5 +14,6 @@ Key features:
 """
 
 from ._dedent import dedent
+from ._version import __version__, __version_tuple__
 
-__all__ = ["dedent"]
+__all__ = ["__version__", "__version_tuple__", "dedent"]
