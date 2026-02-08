@@ -14,6 +14,9 @@ Key features:
 """
 
 from ._dedent import dedent
-from ._version import __version__, __version_tuple__
+from ._version import (  # pyright: ignore[reportMissingImports]: hatch-vcs
+    __version__,  # pyright: ignore[reportUnknownVariableType]: hatch-vcs
+    __version_tuple__,  # pyright: ignore[reportUnknownVariableType]: hatch-vcs
+)
 
-__all__ = ["dedent"]
+__all__ = ["__version__", "__version_tuple__", "dedent"]
