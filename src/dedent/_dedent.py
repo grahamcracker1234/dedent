@@ -9,6 +9,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
 
+class Missing:
+    """Placeholder for missing values."""
+
+
+MISSING: Final = Missing()
+
+
 class AlignSpec(StrEnum):
     """Enumeration of alignment-specific format spec directives."""
 
@@ -16,16 +23,11 @@ class AlignSpec(StrEnum):
     NOALIGN = auto()
 
 
-class Missing:
-    """Placeholder for missing values."""
-
-
-MISSING: Final = Missing()
+type Strip = Literal["smart", "all", "none"]
 
 _INDENTED: Final = re.compile(r"^(\s+)")
 _INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
-
-type Strip = Literal["smart", "all", "none"]
+_SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
 
 
 def _partition[T](it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
@@ -172,7 +174,9 @@ def _strip(string: str, strip: Strip) -> str:
     """
     match strip:
         case "smart":
-            return string.removeprefix("\n").removesuffix("\n")
+            string = _SMART_STRIP.sub("", string, count=1)
+            # Reversing to get the rightmost match instead of leftmost
+            return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
         case "all":
             return string.strip()
         case "none":

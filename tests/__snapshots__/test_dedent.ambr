@@ -265,7 +265,6 @@
   first
   	second
   		third
-       
   '''
 # ---
 # name: TestDedent.test_works_without_interpolation
@@ -279,10 +278,7 @@
   'A single line of input.'
 # ---
 # name: TestSingleLine.test_works_with_closing_quotes_on_newline
-  '''
-  A single line of input.
-              
-  '''
+  'A single line of input.'
 # ---
 # name: TestSingleLine.test_works_with_opening_quotes_on_newline
   'A single line of input.'
