@@ -65,9 +65,6 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
             neither was present. If multiple alignment specs are present, the last one takes
             precedence.
     """
-    if not format_spec:
-        return "", None
-
     specs = format_spec.split(":")
 
     pred = set(AlignSpec).__contains__

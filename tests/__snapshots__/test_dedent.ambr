@@ -200,6 +200,9 @@
   
   '''
 # ---
+# name: TestDedent.test_empty_format_spec
+  '123'
+# ---
 # name: TestDedent.test_escaped_explicit_newlines_and_tabs
   '\\n\\tfirst\\n'
 # ---

@@ -121,6 +121,10 @@ class TestDedent:
             - Discount: {discount: 9.{decimals}%}
         """)
 
+    @staticmethod
+    def test_empty_format_spec(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"{123:}")
+
 
 @pytest.mark.parametrize("strip", STRIP_OPTIONS)
 class TestStrip:
