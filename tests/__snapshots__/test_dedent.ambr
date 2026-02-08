@@ -205,9 +205,9 @@
 # ---
 # name: TestDedent.test_format_spec
   '''
-  =====Receipt=====
-  - Total:      123
-  - Discount:   12.35%
+  =======Receipt=======
+  - Total:       123
+  - Discount:    12.35%
   '''
 # ---
 # name: TestDedent.test_works_with_blank_first_line
@@ -286,6 +286,38 @@
 # name: TestSingleLine.test_works_with_quotes_on_newlines
   'A single line of input.'
 # ---
+# name: TestStrip.test_with_inverse_special_whitespace[all]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_inverse_special_whitespace[none]
+  '''
+  
+     
+  foo
+  bar
+     
+  
+  '''
+# ---
+# name: TestStrip.test_with_inverse_special_whitespace[smart]
+  '''
+     
+  foo
+  bar
+     
+  '''
+# ---
+# name: TestStrip.test_with_inverse_special_whitespace[strip0]
+  '''
+     
+  foo
+  bar
+     
+  '''
+# ---
 # name: TestStrip.test_with_leading_whitespace[all]
   '''
   foo
@@ -316,6 +348,38 @@
   
   foo
   bar
+  '''
+# ---
+# name: TestStrip.test_with_special_whitespace[all]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_special_whitespace[none]
+  '''
+     
+  
+  foo
+  bar
+  
+     
+  '''
+# ---
+# name: TestStrip.test_with_special_whitespace[smart]
+  '''
+  
+  foo
+  bar
+  
+  '''
+# ---
+# name: TestStrip.test_with_special_whitespace[strip0]
+  '''
+  
+  foo
+  bar
+  
   '''
 # ---
 # name: TestStrip.test_with_trailing_whitespace[all]

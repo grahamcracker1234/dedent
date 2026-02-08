@@ -116,9 +116,9 @@ class TestDedent:
         header = "Receipt"
         decimals = 2
         assert snapshot == dedent(t"""
-            {header:=^17}
-            - Total: {total: 8d}
-            - Discount: {discount: 8.{decimals}%}
+            {header:=^21}
+            - Total: {total: 9d}
+            - Discount: {discount: 9.{decimals}%}
         """)
 
 
@@ -152,6 +152,32 @@ class TestStrip:
 
             foo
             bar
+            """.replace("-", " "),
+            strip=strip,
+        )
+
+    @staticmethod
+    def test_with_special_whitespace(snapshot: SnapshotAssertion, strip: StripOption) -> None:
+        assert snapshot == dedent(
+            """---
+
+            foo
+            bar
+
+            ---""".replace("-", " "),
+            strip=strip,
+        )
+
+    @staticmethod
+    def test_with_inverse_special_whitespace(
+        snapshot: SnapshotAssertion, strip: StripOption
+    ) -> None:
+        assert snapshot == dedent(
+            """
+            ---
+            foo
+            bar
+            ---
             """.replace("-", " "),
             strip=strip,
         )

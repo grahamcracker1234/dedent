@@ -6,7 +6,7 @@ from string.templatelib import Interpolation, Template, convert
 from typing import TYPE_CHECKING, Final, Literal, LiteralString, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Iterable
 
 
 class Missing:
@@ -193,21 +193,25 @@ def _dedent(string: str) -> str:
     Returns:
         The dedented string.
     """
-    lines: Sequence[str] = string.split("\n")
-    min_indent = None
+    lines = string.split("\n")
+    max_indent = len(string)
+    min_indent: int = reduce(
+        lambda acc, line: (
+            min(acc, len(indent))
+            if (indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line))
+            else acc
+        ),
+        lines,
+        initial=max_indent,
+    )
 
-    for line in lines:
-        if indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line):
-            indent_size = len(indent)
-            min_indent = min(min_indent or indent_size, indent_size)
-
-    if min_indent is None:
+    if min_indent == max_indent:
         return string
 
     return "\n".join(
-        line[min_indent:] if line and line.startswith((" ", "\t")) else line
+        line[min_indent:] if len(line) >= min_indent and line[:min_indent].isspace() else line
         for line in lines
-    )  # fmt: skip
+    )
 
 
 def dedent(
