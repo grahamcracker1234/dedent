@@ -24,6 +24,14 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "src/dedent/_version.py"
 
+[tool.basedpyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "src/dedent/_version.py",
+]
+
 [tool.ruff]
 line-length = 100
 preview = true
