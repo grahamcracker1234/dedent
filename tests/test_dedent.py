@@ -1,215 +1,336 @@
-from typing import Final
+"""
+Test functionality.
+
+Adapted from https://github.com/dmnd/dedent/blob/7b38d9/src/dedent.test.ts
+"""
+
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
 from dedent import dedent
+from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
 
-GROCERIES: Final = dedent("""
-    - apples
-    - bananas
-    - cherries
-""")
+if TYPE_CHECKING:
+    from _pytest.fixtures import SubRequest
+    from syrupy.assertion import SnapshotAssertion
 
-
-def test_literal():
-    output = dedent("""
-        hello
-            world
-    """)
-    assert output == "hello\n    world"
+    type StripOption = Strip | Missing
+    type AlignOption = bool | Missing
 
 
-def test_template():
-    output = dedent(t"""
-        hello
-            world
-    """)
-    assert output == "hello\n    world"
+STRIP_OPTIONS: Final[list[StripOption]] = [MISSING, "smart", "all", "none"]
+ALIGN_OPTIONS: Final[list[AlignOption]] = [MISSING, False, True]
 
 
-def test_bad_format():
-    """
-    Test type checking for disallowing format strings.
+class TestDedent:
+    @staticmethod
+    def test_works_without_interpolation(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""first
+            second
+            third
+        """)
 
-    We require either a literal string or a template.
-    """
-    name = "python"
-    output = dedent(f"""
-        hello
-            {name}
-    """)
-    assert output == "hello\n    python"
+    @staticmethod
+    def test_works_with_interpolation(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"""first {"line"}
+            {"second"}
+            third
+        """)
 
-    output = dedent(f"""
-        hello
-            {123}
-    """)  # pyright: ignore[reportArgumentType]
-    assert output == "hello\n    123"
+    @staticmethod
+    def test_works_with_suppressed_newlines(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"""first \
+            {"second"}
+            third
+        """)
 
-    def wrapped(value: str) -> str:
-        return dedent(f"""
+    @staticmethod
+    def test_works_with_blank_first_line(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+            Some text that I might want to indent:
+                * reasons
+                * fun
+            That's all.
+        """)
+
+    @staticmethod
+    def test_works_with_multiple_blank_first_lines(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"""
+
+            first
+            second
+            third
+        """)
+
+    @staticmethod
+    def test_works_with_removing_same_number_of_spaces(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"""
+           first
+                second
+                      third
+        """)
+
+    @staticmethod
+    def test_does_not_strip_explicit_newlines(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+            <p>Hello world!</p>\n
+        """)
+
+    @staticmethod
+    def test_does_not_strip_explicit_newlines_with_min_indent(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+            <p>
+                Hello world!
+            </p>\n
+        """)
+
+    @staticmethod
+    def test_works_with_spaces_for_indentation(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+            first
+                second
+                    third
+        """)
+
+    @staticmethod
+    def test_works_with_tabs_for_indentation(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+			first
+				second
+					third
+        """)
+
+    @staticmethod
+    def test_works_with_explicit_tabs_for_indentation(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("\n\t\tfirst\n\t\t\tsecond\n\t\t\t\tthird\n")
+
+    @staticmethod
+    def test_escaped_explicit_newlines_and_tabs(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("\\n\\tfirst\\n")
+
+    @staticmethod
+    def test_format_spec(snapshot: SnapshotAssertion) -> None:
+        total = 123
+        discount = 0.123456789
+        header = "Receipt"
+        decimals = 2
+        assert snapshot == dedent(t"""
+            {header:=^17}
+            - Total: {total: 8d}
+            - Discount: {discount: 8.{decimals}%}
+        """)
+
+
+@pytest.mark.parametrize("strip", STRIP_OPTIONS)
+class TestStrip:
+    @staticmethod
+    def test_with_trailing_whitespace(snapshot: SnapshotAssertion, strip: StripOption) -> None:
+        assert snapshot == dedent(
+            """
+            foo---
+            bar---
+            """.replace("-", " "),
+            strip=strip,
+        )
+
+    @staticmethod
+    def test_without_trailing_whitespace(snapshot: SnapshotAssertion, strip: StripOption) -> None:
+        assert snapshot == dedent(
+            """
+            foo
+            bar
+            """.replace("-", " "),
+            strip=strip,
+        )
+
+    @staticmethod
+    def test_with_leading_whitespace(snapshot: SnapshotAssertion, strip: StripOption) -> None:
+        assert snapshot == dedent(
+            """
+
+
+            foo
+            bar
+            """.replace("-", " "),
+            strip=strip,
+        )
+
+
+class TestAlign:
+    @pytest.fixture(scope="class", params=ALIGN_OPTIONS)
+    @staticmethod
+    def align(request: SubRequest) -> AlignOption:
+        return request.param  # pyright: ignore[reportAny]: bad pytest typing
+
+    @pytest.fixture(scope="class", params=[align.value for align in AlignSpec])
+    @staticmethod
+    def spec(request: SubRequest) -> str:
+        return request.param  # pyright: ignore[reportAny]: bad pytest typing
+
+    @staticmethod
+    def test_with_multiple_lines(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+
+        assert snapshot == dedent(
+            t"""
+            List:
+                {items}
+            ---
+            """,
+            align=align,
+        )
+
+    @staticmethod
+    def test_with_single_line(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        assert snapshot == dedent(
+            t"""
+            List:
+                {"- apples"}
+            ---
+            """,
+            align=align,
+        )
+
+    @staticmethod
+    def test_no_indentation(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+        assert snapshot == dedent(t"{items}", align=align)
+
+    @staticmethod
+    def test_override(snapshot: SnapshotAssertion, align: AlignOption, spec: str) -> None:
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+        assert snapshot == dedent(
+            t"""
+            List:
+                {items:{spec}}
+            ---
+            """,
+            align=align,
+        )
+
+    @staticmethod
+    def test_override_with_format_spec(
+        snapshot: SnapshotAssertion, align: AlignOption, spec: str
+    ) -> None:
+        if isinstance(align, Missing):
+            return
+
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+        size = len(items) + 2
+
+        assert snapshot == dedent(
+            t"""
+            List:
+                {items:\n^{size}:{spec}}
+                {items:{spec}:\n^{size}}
+            ---
+            """,
+            align=align,
+        )
+
+    @staticmethod
+    def test_unknown_format_spec() -> None:
+        with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
+            _ = dedent(t"{123:algn}")  # misspelled "align"
+
+
+class TestTyping:
+    @staticmethod
+    def test_literal(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+            first
+            second
+            third
+        """)
+
+    @staticmethod
+    def test_template(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t"""
+            {"first"}
+            {"second"}
+            {"third"}
+        """)
+
+    @staticmethod
+    def test_non_literal(snapshot: SnapshotAssertion) -> None:
+        name = "python"
+        assert snapshot == dedent(f"""
             hello
-                {value}
-        """)  # pyright: ignore[reportArgumentType]
+                {name}
+        """)
 
-    output = wrapped("python")
-    assert output == "hello\n    python"
+        assert snapshot == dedent(f"""
+            hello
+                {123}
+        """)  # pyright: ignore[reportArgumentType]: allow non-literal string for this test
 
+        def wrapped(value: str) -> str:
+            return dedent(f"""
+                hello
+                    {value}
+            """)  # pyright: ignore[reportArgumentType]: allow non-literal string for this test
 
-def test_unsupported_type():
-    """
-    Test type checking for disallowing unsupported types.
-    """
-    with pytest.raises(TypeError):
-        _ = dedent(123)  # pyright: ignore[reportArgumentType]
+        assert snapshot == wrapped("python")
 
-
-def test_format_spec():
-    total = 123
-    discount = 0.123456789
-    header = "Receipt"
-    decimals = 2
-    output = dedent(t"""
-        {header:=^17}
-        - Total: {total:06d}
-        - Discount: {discount:.{decimals}%}
-    """)
-    assert output == "=====Receipt=====\n- Total: 000123\n- Discount: 12.35%"
-
-
-def test_no_strip():
-    output = dedent(
+    @staticmethod
+    def test_unsupported_type() -> None:
         """
-            hello
-        """,
-        strip=False,
-    )
-    assert output == "\nhello\n"
-
-    output = dedent("\n    hello!\n", strip=False)
-    assert output == "\nhello!\n"
+        Test type checking for disallowing unsupported types.
+        """
+        with pytest.raises(TypeError):
+            _ = dedent(123)  # pyright: ignore[reportArgumentType]: allow unsupported type for this test
 
 
-def test_strip_default():
-    input_string = """
-        hello
-    """
+class TestSingleLine:
+    @staticmethod
+    def test_works(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("A single line of input.")
 
-    output = dedent(input_string)
-    assert output == "hello"
-    assert output == dedent(input_string, strip=True), "strip=True should be the default"
+    @staticmethod
+    def test_works_with_quotes_on_newlines(
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        assert snapshot == dedent("""
+            A single line of input.
+        """)
 
+    @staticmethod
+    def test_works_with_opening_quotes_on_newline(
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        assert snapshot == dedent("""
+            A single line of input.""")
 
-def test_no_align_default():
-    input_string = t"""
-        List:
-            {GROCERIES}
-        ---
-    """
-
-    output = dedent(input_string)
-    assert output == "List:\n    - apples\n- bananas\n- cherries\n---"
-    assert output == dedent(input_string, align=False), "align=False should be the default"
-
-
-def test_align():
-    output = dedent(
-        t"""
-            List:
-                {GROCERIES}
-            ---
-        """,
-        align=True,
-    )
-    assert output == "List:\n    - apples\n    - bananas\n    - cherries\n---"
+    @staticmethod
+    def test_works_with_closing_quotes_on_newline(
+        snapshot: SnapshotAssertion,
+    ) -> None:
+        assert snapshot == dedent("""A single line of input.
+            """)
 
 
-def test_align_ignores_non_multiline_formatted_outputput():
-    grocery, *_ = GROCERIES.splitlines()
-    assert "\n" not in grocery
+class TestUnicodeCharacterPreservation:
+    @staticmethod
+    def test_preserves_emojis(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("😊")
 
-    output = dedent(
-        t"""
-            List:
-                {grocery}
-            ---
-        """,
-        align=True,
-    )
-    assert output == "List:\n    - apples\n---"
-
-
-def test_align_no_indent():
-    result = dedent(t"{GROCERIES}", align=True)
-    assert result == "- apples\n- bananas\n- cherries"
-
-
-def test_align_override():
-    output = dedent(
-        t"""
-            List:
-                {GROCERIES:align}
-            ---
-        """,
-        align=False,
-    )
-    assert output == "List:\n    - apples\n    - bananas\n    - cherries\n---"
-
-
-def test_no_align_override():
-    output = dedent(
-        t"""
-            List:
-                {GROCERIES:noalign}
-            ---
-        """,
-        align=True,
-    )
-    assert output == "List:\n    - apples\n- bananas\n- cherries\n---"
-
-
-def test_align_override_with_format_spec():
-    total = 123
-    output = dedent(
-        t"""
-            Total: {total:align:06d}
-            Total: {total:06d:align}
-        """,
-        align=False,
-    )
-    assert output == "Total: 000123\nTotal: 000123"
-
-    output = dedent(
-        t"""
-            List:
-                {GROCERIES:\n^{len(GROCERIES) + 2}:align}
-                {GROCERIES:align:\n^{len(GROCERIES) + 2}}
-            ---
-        """,
-        align=False,
-    )
-    assert (
-        output
-        == "List:\n    \n    - apples\n    - bananas\n    - cherries\n    \n    \n    - apples\n    - bananas\n    - cherries\n    \n---"  # noqa: E501
-    )
-
-
-def test_mixed_align_overrides():
-    input_string = t"""
-        List:
-            {GROCERIES:align}
-        Other:
-            {GROCERIES:noalign}
-        ---
-    """
-
-    output = dedent(input_string)
-    assert (
-        output
-        == "List:\n    - apples\n    - bananas\n    - cherries\nOther:\n    - apples\n- bananas\n- cherries\n---"  # noqa: E501
-    )
-
-
-def test_unknown_format_spec():
-    with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
-        _ = dedent(t"{GROCERIES:algn}")  # misspelled "align"
+    @staticmethod
+    def test_preserves_ideographs(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("弟気")

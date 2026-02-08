@@ -12,6 +12,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.11",
+    "syrupy>=5.1.0",
 ]
 
 [build-system]
@@ -130,10 +131,15 @@ pydocstyle.convention = "pep257"
 "**/tests/**/*.py" = [
     "S101",    # assert
     "PLR2004", # magic-value-comparison
-    "INP001",  # implicit-namespace-package
+    "INP",     # flake8-no-pep420 (implicit-namespace-package)
     "D",       # pydocstyle
     "DOC",     # pydoclint
-    "ANN",     # flake8-annotations
+]
+"**/scripts/*.py" = [
+    "INP", # flake8-no-pep420 (implicit-namespace-package)
+    "D",   # pydocstyle
+    "DOC", # pydoclint
+    "T20", # flake8-print
 ]
 
 [tool.pytest.ini_options]

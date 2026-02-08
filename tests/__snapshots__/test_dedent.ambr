@@ -1,0 +1,414 @@
+# serializer version: 1
+# name: TestAlign.test_no_indentation[False]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_no_indentation[True]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_no_indentation[align0]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_override[False-align]
+  '''
+  List:
+      - apples
+      - bananas
+      - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override[False-noalign]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override[True-align]
+  '''
+  List:
+      - apples
+      - bananas
+      - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override[True-noalign]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override[align0-align]
+  '''
+  List:
+      - apples
+      - bananas
+      - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override[align0-noalign]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_override_with_format_spec[False-align]
+  '''
+  List:
+      
+      - apples
+      - bananas
+      - cherries
+      
+      
+      - apples
+      - bananas
+      - cherries
+      
+  ---
+  '''
+# ---
+# name: TestAlign.test_override_with_format_spec[False-noalign]
+  '''
+  List:
+      
+  - apples
+  - bananas
+  - cherries
+  
+      
+  - apples
+  - bananas
+  - cherries
+  
+  ---
+  '''
+# ---
+# name: TestAlign.test_override_with_format_spec[True-align]
+  '''
+  List:
+      
+      - apples
+      - bananas
+      - cherries
+      
+      
+      - apples
+      - bananas
+      - cherries
+      
+  ---
+  '''
+# ---
+# name: TestAlign.test_override_with_format_spec[True-noalign]
+  '''
+  List:
+      
+  - apples
+  - bananas
+  - cherries
+  
+      
+  - apples
+  - bananas
+  - cherries
+  
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines[False]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines[True]
+  '''
+  List:
+      - apples
+      - bananas
+      - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines[align0]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_single_line[False]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_single_line[True]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_single_line[align0]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
+# name: TestDedent.test_does_not_strip_explicit_newlines
+  '''
+  <p>Hello world!</p>
+  
+  '''
+# ---
+# name: TestDedent.test_does_not_strip_explicit_newlines_with_min_indent
+  '''
+  <p>
+      Hello world!
+  </p>
+  
+  '''
+# ---
+# name: TestDedent.test_escaped_explicit_newlines_and_tabs
+  '\\n\\tfirst\\n'
+# ---
+# name: TestDedent.test_format_spec
+  '''
+  =====Receipt=====
+  - Total:      123
+  - Discount:   12.35%
+  '''
+# ---
+# name: TestDedent.test_works_with_blank_first_line
+  '''
+  Some text that I might want to indent:
+      * reasons
+      * fun
+  That's all.
+  '''
+# ---
+# name: TestDedent.test_works_with_explicit_tabs_for_indentation
+  '''
+  first
+  	second
+  		third
+  '''
+# ---
+# name: TestDedent.test_works_with_interpolation
+  '''
+  first line
+  second
+  third
+  '''
+# ---
+# name: TestDedent.test_works_with_multiple_blank_first_lines
+  '''
+  
+  first
+  second
+  third
+  '''
+# ---
+# name: TestDedent.test_works_with_removing_same_number_of_spaces
+  '''
+  first
+       second
+             third
+  '''
+# ---
+# name: TestDedent.test_works_with_spaces_for_indentation
+  '''
+  first
+      second
+          third
+  '''
+# ---
+# name: TestDedent.test_works_with_suppressed_newlines
+  '''
+  first             second
+  third
+  '''
+# ---
+# name: TestDedent.test_works_with_tabs_for_indentation
+  '''
+  first
+  	second
+  		third
+       
+  '''
+# ---
+# name: TestDedent.test_works_without_interpolation
+  '''
+  first
+  second
+  third
+  '''
+# ---
+# name: TestSingleLine.test_works
+  'A single line of input.'
+# ---
+# name: TestSingleLine.test_works_with_closing_quotes_on_newline
+  '''
+  A single line of input.
+              
+  '''
+# ---
+# name: TestSingleLine.test_works_with_opening_quotes_on_newline
+  'A single line of input.'
+# ---
+# name: TestSingleLine.test_works_with_quotes_on_newlines
+  'A single line of input.'
+# ---
+# name: TestStrip.test_with_leading_whitespace[all]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_leading_whitespace[none]
+  '''
+  
+  
+  
+  foo
+  bar
+  
+  '''
+# ---
+# name: TestStrip.test_with_leading_whitespace[smart]
+  '''
+  
+  
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_leading_whitespace[strip0]
+  '''
+  
+  
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_trailing_whitespace[all]
+  '''
+  foo   
+  bar
+  '''
+# ---
+# name: TestStrip.test_with_trailing_whitespace[none]
+  '''
+  
+  foo   
+  bar   
+  
+  '''
+# ---
+# name: TestStrip.test_with_trailing_whitespace[smart]
+  '''
+  foo   
+  bar   
+  '''
+# ---
+# name: TestStrip.test_with_trailing_whitespace[strip0]
+  '''
+  foo   
+  bar   
+  '''
+# ---
+# name: TestStrip.test_without_trailing_whitespace[all]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_without_trailing_whitespace[none]
+  '''
+  
+  foo
+  bar
+  
+  '''
+# ---
+# name: TestStrip.test_without_trailing_whitespace[smart]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestStrip.test_without_trailing_whitespace[strip0]
+  '''
+  foo
+  bar
+  '''
+# ---
+# name: TestTyping.test_literal
+  '''
+  first
+  second
+  third
+  '''
+# ---
+# name: TestTyping.test_non_literal
+  '''
+  hello
+      python
+  '''
+# ---
+# name: TestTyping.test_non_literal.1
+  '''
+  hello
+      123
+  '''
+# ---
+# name: TestTyping.test_non_literal.2
+  '''
+  hello
+      python
+  '''
+# ---
+# name: TestTyping.test_template
+  '''
+  first
+  second
+  third
+  '''
+# ---
+# name: TestUnicodeCharacterPreservation.test_preserves_emojis
+  '😊'
+# ---
+# name: TestUnicodeCharacterPreservation.test_preserves_ideographs
+  '弟気'
+# ---

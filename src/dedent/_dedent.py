@@ -3,21 +3,29 @@ from enum import StrEnum, auto
 from functools import reduce
 from itertools import filterfalse, tee
 from string.templatelib import Interpolation, Template, convert
-from typing import TYPE_CHECKING, Final, LiteralString, cast
+from typing import TYPE_CHECKING, Final, Literal, LiteralString, cast
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
 
-_INDENTED: Final = re.compile(r"^(\s+)")
-_INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
-
-
-class _DedentSpec(StrEnum):
-    """Enumeration of dedent-specific format spec directives."""
+class AlignSpec(StrEnum):
+    """Enumeration of alignment-specific format spec directives."""
 
     ALIGN = auto()
     NOALIGN = auto()
+
+
+class Missing:
+    """Placeholder for missing values."""
+
+
+MISSING: Final = Missing()
+
+_INDENTED: Final = re.compile(r"^(\s+)")
+_INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
+
+type Strip = Literal["smart", "all", "none"]
 
 
 def _partition[T](it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
@@ -39,20 +47,20 @@ def _partition[T](it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T]
 
 def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
     """
-    Parse format spec to extract dedent-specific directives.
+    Parse format spec to extract alignment-specific directives.
 
     Extracts 'align' and 'noalign' directives from the format spec and returns the remaining format
     spec along with the alignment override.
 
     Args:
-        format_spec: The format specification string, potentially containing dedent directives
+        format_spec: The format specification string, potentially containing alignment directives
             separated by colons.
 
     Returns:
         A tuple of (remaining_format_spec, align_override) where:
-        - remaining_format_spec: The format spec with dedent directives removed.
+        - remaining_format_spec: The format spec with alignment directives removed.
         - align_override: True if 'align' was found, False if 'noalign' was found, or None if
-            neither was present. If multiple dedent specs are present, the last one takes
+            neither was present. If multiple alignment specs are present, the last one takes
             precedence.
     """
     if not format_spec:
@@ -60,7 +68,7 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
 
     specs = format_spec.split(":")
 
-    pred = set(_DedentSpec).__contains__
+    pred = set(AlignSpec).__contains__
     dedent_specs, other_specs = _partition(specs, pred)
     *_, dedent_spec = list(dedent_specs) or [None]
 
@@ -69,7 +77,7 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
     if dedent_spec is None:
         return format_spec, None
 
-    return format_spec, _DedentSpec(dedent_spec) == _DedentSpec.ALIGN
+    return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
 
 
 def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
@@ -151,12 +159,59 @@ def _handle_item(
     return value
 
 
+def _strip(string: str, strip: Strip) -> str:
+    """
+    Strip leading and trailing whitespace from a string.
+
+    Args:
+        string: The string to strip.
+        strip: The strip mode to use.
+
+    Returns:
+        The stripped string.
+    """
+    match strip:
+        case "smart":
+            return string.removeprefix("\n").removesuffix("\n")
+        case "all":
+            return string.strip()
+        case "none":
+            return string
+
+
+def _dedent(string: str) -> str:
+    """
+    Remove common leading whitespace from a string.
+
+    Args:
+        string: The string to dedent.
+
+    Returns:
+        The dedented string.
+    """
+    lines: Sequence[str] = string.split("\n")
+    min_indent = None
+
+    for line in lines:
+        if indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line):
+            indent_size = len(indent)
+            min_indent = min(min_indent or indent_size, indent_size)
+
+    if min_indent is None:
+        return string
+
+    return "\n".join(
+        line[min_indent:] if line and line.startswith((" ", "\t")) else line
+        for line in lines
+    )  # fmt: skip
+
+
 def dedent(
     string: Template | LiteralString,
     /,
     *,
-    align: bool = False,
-    strip: bool = True,
+    align: bool | Missing = MISSING,
+    strip: Literal["smart", "all", "none"] | Missing = MISSING,
 ) -> str:
     r"""
     Remove common leading whitespace from a template string.
@@ -185,6 +240,9 @@ def dedent(
         The dedented string with common leading whitespace removed. If `strip` is True, leading and
         trailing whitespace is also removed.
     """
+    align = align if not isinstance(align, Missing) else False
+    strip = strip if not isinstance(strip, Missing) else "smart"
+
     match string:
         case str() as formatted_string:
             pass
@@ -198,21 +256,5 @@ def dedent(
             message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
             raise TypeError(message)
 
-    lines: Sequence[str] = formatted_string.split("\n")
-    min_indent = None
-
-    for line in lines:
-        if indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line):
-            indent_size = len(indent)
-            min_indent = min(min_indent or indent_size, indent_size)
-
-    if min_indent is not None:
-        formatted_string = "\n".join(
-            line[min_indent:] if line and line.startswith((" ", "\t")) else line
-            for line in lines
-        )  # fmt: skip
-
-    if strip:
-        formatted_string = formatted_string.strip()
-
-    return formatted_string
+    formatted_string = _dedent(formatted_string)
+    return _strip(formatted_string, strip)
