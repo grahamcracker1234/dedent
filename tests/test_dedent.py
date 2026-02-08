@@ -14,17 +14,17 @@ GROCERIES: Final = dedent("""
 def test_literal():
     output = dedent("""
         hello
-          world
+            world
     """)
-    assert output == "hello\n  world"
+    assert output == "hello\n    world"
 
 
 def test_template():
     output = dedent(t"""
         hello
-          world
+            world
     """)
-    assert output == "hello\n  world"
+    assert output == "hello\n    world"
 
 
 def test_bad_format():
@@ -36,24 +36,24 @@ def test_bad_format():
     name = "python"
     output = dedent(f"""
         hello
-          {name}
+            {name}
     """)
-    assert output == "hello\n  python"
+    assert output == "hello\n    python"
 
     output = dedent(f"""
         hello
-          {123}
+            {123}
     """)  # pyright: ignore[reportArgumentType]
-    assert output == "hello\n  123"
+    assert output == "hello\n    123"
 
     def wrapped(value: str) -> str:
         return dedent(f"""
             hello
-              {value}
+                {value}
         """)  # pyright: ignore[reportArgumentType]
 
     output = wrapped("python")
-    assert output == "hello\n  python"
+    assert output == "hello\n    python"
 
 
 def test_unsupported_type():
