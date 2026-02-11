@@ -186,6 +186,14 @@
   ---
   '''
 # ---
+# name: TestAlignWithTStrings.test_tstring_align_spec_still_works
+  '''
+  List:
+      - apples
+      - bananas
+  ---
+  '''
+# ---
 # name: TestDedent.test_does_not_strip_explicit_newlines
   '''
   <p>Hello world!</p>

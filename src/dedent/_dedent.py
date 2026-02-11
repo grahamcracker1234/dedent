@@ -1,33 +1,24 @@
-import re
-from enum import StrEnum, auto
 from functools import reduce
 from itertools import filterfalse, tee
 from string.templatelib import Interpolation, Template, convert
-from typing import TYPE_CHECKING, Final, Literal, LiteralString, cast
+from typing import TYPE_CHECKING, Literal, LiteralString, cast
+
+from ._aligned import process_align_markers
+from ._core import (
+    MISSING,
+    AlignSpec,
+    Missing,
+    Strip,
+    align_value,
+    dedent_string,
+    strip_string,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-
-class Missing:
-    """Placeholder for missing values."""
-
-
-MISSING: Final = Missing()
-
-
-class AlignSpec(StrEnum):
-    """Enumeration of alignment-specific format spec directives."""
-
-    ALIGN = auto()
-    NOALIGN = auto()
-
-
-type Strip = Literal["smart", "all", "none"]
-
-_INDENTED: Final = re.compile(r"^(\s+)")
-_INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
-_SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
+# Re-export for backwards compatibility with existing test imports.
+__all__ = ["MISSING", "AlignSpec", "Missing", "Strip", "dedent"]
 
 
 def _partition[T](it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
@@ -79,45 +70,6 @@ def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
     return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
 
 
-def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
-    """
-    Safely extract the first capture group from a regex match.
-
-    Args:
-        pattern: The compiled regex pattern to match against.
-        string: The string to match.
-
-    Returns:
-        The first capture group if the pattern matches, None otherwise.
-    """
-    if m := pattern.match(string):
-        return m.group(1)
-    return None
-
-
-def _align(value: str, preceding_text: str) -> str:
-    """
-    Align multiline value to match the indentation of the current line.
-
-    If the value contains newlines, each line after the first is indented to match the indentation
-    of the current line in the preceding text.
-
-    Args:
-        value: The string value to align, potentially containing newlines.
-        preceding_text: The text that precedes this value, used to determine the current line's
-            indentation.
-
-    Returns:
-        The value with subsequent lines indented to match the current line's indentation, or the
-        original value if no indentation is found or if the value doesn't contain newlines.
-    """
-    current_line = preceding_text[preceding_text.rfind("\n") + 1 :]
-    if indent := _safe_match_first_group(_INDENTED, current_line):
-        return value.replace("\n", "\n" + indent)
-
-    return value
-
-
 def _handle_item(
     item: str | Interpolation,
     *,
@@ -153,62 +105,9 @@ def _handle_item(
     value = str(value)
     should_align = align_override if align_override is not None else align
     if should_align:
-        value = _align(value, preceding_text)
+        value = align_value(value, preceding_text)
 
     return value
-
-
-def _strip(string: str, strip: Strip) -> str:
-    """
-    Strip leading and trailing whitespace from a string.
-
-    Args:
-        string: The string to strip.
-        strip: The strip mode to use.
-
-    Returns:
-        The stripped string.
-    """
-    match strip:
-        case "smart":
-            string = _SMART_STRIP.sub("", string, count=1)
-            # Reversing to get the rightmost match instead of leftmost
-            return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
-        case "all":
-            return string.strip()
-        case "none":
-            return string
-
-
-def _dedent(string: str) -> str:
-    """
-    Remove common leading whitespace from a string.
-
-    Args:
-        string: The string to dedent.
-
-    Returns:
-        The dedented string.
-    """
-    lines = string.split("\n")
-    max_indent = len(string)
-    min_indent: int = reduce(
-        lambda acc, line: (
-            min(acc, len(indent))
-            if (indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line))
-            else acc
-        ),
-        lines,
-        initial=max_indent,
-    )
-
-    if min_indent == max_indent:
-        return string
-
-    return "\n".join(
-        line[min_indent:] if len(line) >= min_indent and line[:min_indent].isspace() else line
-        for line in lines
-    )
 
 
 def dedent(
@@ -250,7 +149,7 @@ def dedent(
 
     match string:
         case str() as formatted_string:
-            pass
+            formatted_string = process_align_markers(formatted_string)
         case Template() as template:
             formatted_string = reduce(
                 lambda acc, item: acc + _handle_item(item, preceding_text=acc, align=align),
@@ -261,5 +160,5 @@ def dedent(
             message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
             raise TypeError(message)
 
-    formatted_string = _dedent(formatted_string)
-    return _strip(formatted_string, strip)
+    formatted_string = dedent_string(formatted_string)
+    return strip_string(formatted_string, strip)

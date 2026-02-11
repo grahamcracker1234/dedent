@@ -3,7 +3,7 @@ name = "dedent"
 dynamic = ["version"]
 description = "What textwrap.dedent should have been"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = []
 license = "MIT"
 license-files = ["LICENSE.md"]
@@ -80,10 +80,12 @@ exclude = [
     "**/.*",
     "src/dedent/_version.py",
 ]
+reportPrivateUsage = false
 
 [tool.ruff]
 line-length = 100
 preview = true
+target-version = "py314"
 
 [tool.ruff.format]
 indent-style = "space"
@@ -176,6 +178,16 @@ pydocstyle.convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
 "*.py" = ["PYI"]
+"src/dedent/__init__.py" = [
+    "UP036",  # version-block: needed for runtime compat
+    "RUF067", # init-module: conditional import is intentional
+]
+"src/dedent/_core.py" = [
+    "UP042", # str-enum: (str, Enum) needed for Python 3.10 compat
+]
+"tests/conftest.py" = [
+    "UP036", # version-block: needed for runtime compat
+]
 "**/tests/**/*.py" = [
     "S101",    # assert
     "PLR2004", # magic-value-comparison

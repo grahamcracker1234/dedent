@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from dedent import dedent
+from dedent import align, dedent
 from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
 
 if TYPE_CHECKING:
@@ -364,3 +364,50 @@ class TestUnicodeCharacterPreservation:
     @staticmethod
     def test_preserves_ideographs(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent("弟気")
+
+
+class TestAlignWithTStrings:
+    """Test that align() works alongside t-string dedent on Python 3.14+."""
+
+    @staticmethod
+    def test_align_wrapper_in_fstring_with_tstring_dedent() -> None:
+        items = dedent("""
+            - apples
+            - bananas
+        """)
+        result = dedent(f"""
+            Groceries:
+                {align(items)}
+            ---
+        """)  # pyright: ignore[reportArgumentType]
+        assert result == "Groceries:\n    - apples\n    - bananas\n---"
+
+    @staticmethod
+    def test_tstring_align_spec_still_works(snapshot: SnapshotAssertion) -> None:
+        items = dedent("""
+            - apples
+            - bananas
+        """)
+        assert snapshot == dedent(
+            t"""
+            List:
+                {items:align}
+            ---
+            """,
+        )
+
+    @staticmethod
+    def test_align_markers_processed_in_str_branch() -> None:
+        items = dedent("""
+            - one
+            - two
+        """)
+        # Plain string (f-string) goes through str() branch even on 3.14
+        result = dedent(f"""
+            A:
+                {align(items)}
+            B:
+                {align(items)}
+        """)  # pyright: ignore[reportArgumentType]
+        assert "\x00" not in result
+        assert result == "A:\n    - one\n    - two\nB:\n    - one\n    - two"

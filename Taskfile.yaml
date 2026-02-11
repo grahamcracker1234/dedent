@@ -29,9 +29,18 @@ tasks:
     desc: "Testing with pytest coverage"
     cmd: pwd && uv run pytest --cov=src --cov-report=term-missing {{.CLI_ARGS}}
 
-  check:tests:live:
-    desc: "Live service testing with pytest"
-    cmd: uv run pytest -m live {{.CLI_ARGS}}
+  check:tests:matrix:
+    desc: "Test across Python 3.10-3.14"
+    cmds:
+      - for:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+        cmd: >-
+          echo "=== Python {{.ITEM}} ===" &&
+          uv run -p {{.ITEM}} pytest {{.CLI_ARGS}}
 
   check:
     desc: "Run all checks"
