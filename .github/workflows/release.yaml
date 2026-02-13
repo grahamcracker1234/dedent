@@ -4,9 +4,6 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-
 jobs:
   check:
     uses: ./.github/workflows/check.yaml
@@ -14,6 +11,8 @@ jobs:
   release:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -21,6 +20,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version-file: "pyproject.toml"
+          allow-prereleases: true
       - uses: astral-sh/setup-uv@v7
       - run: uv tool install hatch
       - run: hatch build
@@ -29,3 +29,23 @@ jobs:
         with:
           generate_release_notes: true
           files: dist/*
+
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+          allow-prereleases: true
+      - uses: astral-sh/setup-uv@v7
+      - run: uv tool install hatch
+      - run: hatch build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
