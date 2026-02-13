@@ -2,6 +2,7 @@
 
 It's like `textwrap.dedent`, but actually functional.
 
+> [!NOTE]
 > Only supports Python 3.14+ due to the use of t-strings.
 
 ## Table of Contents
