@@ -17,10 +17,10 @@ What [`textwrap.dedent`](https://docs.python.org/3/library/textwrap.html#textwra
 
 ```bash
 # Using uv (Recommended)
-uv add git+https://github.com/grahamcracker1234/dedent.git
+uv add dedent
 
 # Using pip
-pip install git+https://github.com/grahamcracker1234/dedent.git 
+pip install dedent
 ```
 
 ```python
