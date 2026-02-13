@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Final
 import pytest
 
 from dedent import align, dedent
-from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
+from dedent._core import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
 
 if TYPE_CHECKING:
     from _pytest.fixtures import SubRequest

@@ -5,10 +5,11 @@ from typing import TYPE_CHECKING, Literal, LiteralString, cast
 
 from ._aligned import process_align_markers
 from ._core import (
+    DEFAULT_ALIGN,
+    DEFAULT_STRIP,
     MISSING,
     AlignSpec,
     Missing,
-    Strip,
     align_value,
     dedent_string,
     strip_string,
@@ -16,9 +17,6 @@ from ._core import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-
-# Re-export for backwards compatibility with existing test imports.
-__all__ = ["MISSING", "AlignSpec", "Missing", "Strip", "dedent"]
 
 
 def _partition[T](it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
@@ -135,7 +133,9 @@ def dedent(
         align: Whether to align multiline interpolated values by indenting subsequent lines to match
             the indentation of the current line. Defaults to False. Can be overridden per-value
             using format spec directives.
-        strip: Whether to remove leading and trailing whitespace from the result. Defaults to True.
+        strip: How to strip leading/trailing whitespace. `"smart"` (default) strips one leading and
+            one trailing `\n`-bounded blank segment. `"all"` strips all surrounding whitespace.
+            `"none"` leaves the string unchanged.
 
     Raises:
         TypeError: If the input is not a string or Template object.
@@ -144,21 +144,22 @@ def dedent(
         The dedented string with common leading whitespace removed. If `strip` is True, leading and
         trailing whitespace is also removed.
     """
-    align = align if not isinstance(align, Missing) else False
-    strip = strip if not isinstance(strip, Missing) else "smart"
+    align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
+    strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
     match string:
         case str() as formatted_string:
-            formatted_string = process_align_markers(formatted_string)
+            pass
         case Template() as template:
             formatted_string = reduce(
                 lambda acc, item: acc + _handle_item(item, preceding_text=acc, align=align),
                 template,
                 initial="",
             )
-        case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
-            message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
-            raise TypeError(message)
+        case unknown:  # pyright: ignore[reportUnnecessaryComparison]
+            message = f"expected str or Template, not {type(unknown).__qualname__!r}"
+            raise TypeError(message)  # pyright: ignore[reportUnreachable]
 
+    formatted_string = process_align_markers(formatted_string)
     formatted_string = dedent_string(formatted_string)
     return strip_string(formatted_string, strip)

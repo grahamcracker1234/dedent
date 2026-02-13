@@ -1,5 +1,6 @@
 """Shared utilities for dedent, compatible with Python 3.10+."""
 
+# NOTE: PEP 649: Deferred Evaluation Of Annotations (3.14+)
 from __future__ import annotations
 
 import re
@@ -7,7 +8,11 @@ from enum import Enum
 from functools import reduce
 from typing import Final, Literal
 
+DEFAULT_STRIP: Final = "smart"
+DEFAULT_ALIGN: Final = False
 
+
+# NOTE: PEP 661: Sentinel Values (Deferred)
 class Missing:
     """Placeholder for missing values."""
 
@@ -15,6 +20,13 @@ class Missing:
 MISSING: Final = Missing()
 
 
+# NOTE: PEP 663: Standardizing Enum behaviors (3.11+)
+# class AlignSpec(StrEnum):
+#     """Enumeration of alignment-specific format spec directives."""
+#
+#     ALIGN = auto()
+#     NOALIGN = auto()
+#
 class AlignSpec(str, Enum):
     """Enumeration of alignment-specific format spec directives."""
 
@@ -22,6 +34,8 @@ class AlignSpec(str, Enum):
     NOALIGN = "noalign"
 
 
+# NOTE: PEP 695: Type Parameter Syntax (3.12+)
+# type Strip = Literal["smart", "all", "none"]
 Strip = Literal["smart", "all", "none"]
 
 _INDENTED: Final = re.compile(r"^(\s+)")
@@ -79,13 +93,15 @@ def strip_string(string: str, strip: Strip) -> str:
     Returns:
         The stripped string.
     """
-    if strip == "smart":
-        string = _SMART_STRIP.sub("", string, count=1)
-        # Reversing to get the rightmost match instead of leftmost
-        return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
-    if strip == "all":
-        return string.strip()
-    return string
+    match strip:
+        case "smart":
+            string = _SMART_STRIP.sub("", string, count=1)
+            # Reversing to get the rightmost match instead of leftmost
+            return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
+        case "all":
+            return string.strip()
+        case "none":
+            return string
 
 
 def dedent_string(string: str) -> str:

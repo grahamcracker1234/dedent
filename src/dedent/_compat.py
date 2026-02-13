@@ -5,14 +5,13 @@ from __future__ import annotations
 from typing import Literal
 
 from ._aligned import process_align_markers
-from ._core import MISSING, Missing, dedent_string, strip_string
+from ._core import DEFAULT_STRIP, MISSING, Missing, dedent_string, strip_string
 
 
 def dedent(
     string: str,
     /,
     *,
-    align: bool | Missing = MISSING,  # noqa: ARG001  # pyright: ignore[reportUnusedParameter]
     strip: Literal["smart", "all", "none"] | Missing = MISSING,
 ) -> str:
     r"""
@@ -24,23 +23,20 @@ def dedent(
 
     Args:
         string: The string to dedent.
-        align: Unused on Python <3.14 (kept for API compatibility). Alignment is controlled
-            by wrapping values with :func:`align`.
-        strip: How to strip leading/trailing whitespace. ``"smart"`` (default) strips one
-            leading and one trailing ``\\n``-bounded blank segment. ``"all"`` strips all
-            surrounding whitespace. ``"none"`` leaves the string unchanged.
-
+        strip: How to strip leading/trailing whitespace. `"smart"` (default) strips one leading and
+            one trailing `\n`-bounded blank segment. `"all"` strips all surrounding whitespace.
+            `"none"` leaves the string unchanged.
     Raises:
         TypeError: If the input is not a string.
 
     Returns:
         The dedented string with common leading whitespace removed.
     """
-    strip = strip if not isinstance(strip, Missing) else "smart"
+    strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
     if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-        message = f"expected str, not {type(string).__qualname__!r}"  # pyright: ignore[reportUnreachable]
-        raise TypeError(message)
+        message = f"expected str, not {type(string).__qualname__!r}"
+        raise TypeError(message)  # pyright: ignore[reportUnreachable]
 
     formatted_string = process_align_markers(string)
     formatted_string = dedent_string(formatted_string)

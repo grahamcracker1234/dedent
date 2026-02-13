@@ -3,60 +3,65 @@
 from __future__ import annotations
 
 import re
-import uuid
-from typing import Final
+from dataclasses import dataclass, field
+from typing import Final, final
+from uuid import uuid4
 
 from ._core import align_value
 
+_START_PREFIX: Final = "\x00DEDENT_ALIGN_START:"
+_END_PREFIX: Final = "\x00DEDENT_ALIGN_END:"
+_SEP: Final = "\x00"
+
 _ALIGN_MARKER: Final = re.compile(
-    r"\x00DEDENT_ALIGN_START:([a-f0-9]{32})\x00(.*?)\x00DEDENT_ALIGN_END:\1\x00",
+    rf"{_START_PREFIX}([a-f0-9]{{32}}){_SEP}(.*?){_END_PREFIX}\1{_SEP}",
     re.DOTALL,
 )
 
 
+@final
+@dataclass(frozen=True, kw_only=True)
 class Aligned:
     """
     Wrapper that embeds alignment markers around a value for f-string compatibility.
 
-    When used inside an f-string and passed to ``dedent()``, the markers signal that the
+    When used inside an f-string and passed to `dedent()`, the markers signal that the
     interpolated value should be indented to match its surrounding context.
 
-    This class implements ``__str__``, ``__repr__``, and ``__format__`` so that conversion
-    flags (``!s``, ``!r``) and format specifications work correctly.
+    This class implements `__str__`, `__repr__`, and `__format__` so that conversion
+    flags (`!s`, `!r`) and format specifications work correctly.
     """
 
-    _START_PREFIX: Final = "\x00DEDENT_ALIGN_START:"
-    _END_PREFIX: Final = "\x00DEDENT_ALIGN_END:"
-    _SEP: Final = "\x00"
-
     _value: object
-    _id: str
-
-    def __init__(self, value: object) -> None:
-        self._value = value
-        self._id = uuid.uuid4().hex
+    _ID: Final[str] = field(default_factory=lambda: uuid4().hex)
 
     def _wrap(self, text: str) -> str:
-        start = f"{self._START_PREFIX}{self._id}{self._SEP}"
-        end = f"{self._END_PREFIX}{self._id}{self._SEP}"
+        start = f"{_START_PREFIX}{self._ID}{_SEP}"
+        end = f"{_END_PREFIX}{self._ID}{_SEP}"
         return f"{start}{text}{end}"
 
+    # NOTE: PEP 698: Override Decorator (3.12)
+    # @overload
     def __str__(self) -> str:  # pyright: ignore[reportImplicitOverride]
         return self._wrap(str(self._value))
 
+    # NOTE: PEP 698: Override Decorator (3.12)
+    # @overload
     def __repr__(self) -> str:  # pyright: ignore[reportImplicitOverride]
         return self._wrap(repr(self._value))
 
+    # NOTE: PEP 698: Override Decorator (3.12)
+    # @overload
     def __format__(self, format_spec: str) -> str:  # pyright: ignore[reportImplicitOverride]
         return self._wrap(format(self._value, format_spec))
 
 
 def align(value: object) -> Aligned:
     """
-    Mark a value for automatic indentation alignment inside ``dedent()``.
+    Mark a value for automatic indentation alignment inside `dedent()`.
 
     Wrap an interpolated value so that, when the surrounding f-string is passed to
-    ``dedent()``, subsequent lines of the value are indented to match the current
+    `dedent()`, subsequent lines of the value are indented to match the current
     indentation context.
 
     Example::
@@ -79,22 +84,22 @@ def align(value: object) -> Aligned:
         # ---
 
     Args:
-        value: The value to align. Can be any object; ``str()``, ``repr()``, or
-            ``format()`` will be called on it depending on usage in the f-string.
+        value: The value to align. Can be any object; `str()`, `repr()`, or
+            `format()` will be called on it depending on usage in the f-string.
 
     Returns:
-        An :class:`Aligned` wrapper whose string representation contains invisible
-        markers that ``dedent()`` uses to apply alignment.
+        An `Aligned` wrapper whose string representation contains invisible
+        markers that `dedent()` uses to apply alignment.
     """
-    return Aligned(value)
+    return Aligned(_value=value)
 
 
 def process_align_markers(string: str) -> str:
     """
-    Detect alignment markers in *string*, apply indentation alignment, and remove the markers.
+    Detect alignment markers in `string`, apply indentation alignment, and remove the markers.
 
-    This is called by ``dedent()`` when it receives a plain string (the f-string path).
-    Markers are inserted by :class:`Aligned` wrappers created via :func:`align`.
+    This is called by `dedent()` when it receives a plain string (the f-string path).
+    Markers are inserted by `Aligned` wrappers created via `align`.
 
     Args:
         string: The string potentially containing alignment markers.
