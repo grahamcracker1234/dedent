@@ -1,7 +1,7 @@
 [project]
 name = "dedent"
 dynamic = ["version"]
-description = "The dedent that textwrap.dedent should have been"
+description = "What textwrap.dedent should have been"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = []

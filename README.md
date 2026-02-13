@@ -1,6 +1,6 @@
 # dedent
 
-The dedent that `textwrap.dedent` should have been.
+What [`textwrap.dedent`](https://docs.python.org/3/library/textwrap.html#textwrap.dedent) should have been.
 
 > [!NOTE]
 > Only supports Python 3.14+ due to the use of t-strings.
