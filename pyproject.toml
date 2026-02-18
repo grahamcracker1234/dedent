@@ -84,7 +84,6 @@ exclude = [
     "**/.*",
     "src/dedent/_version.py",
 ]
-pythonVersion = "3.14"
 reportUnreachable = "hint"
 reportUnnecessaryTypeIgnoreComment = "hint"
 

@@ -234,7 +234,7 @@ class TestAlign:
                 {items}
             ---
             """, items=items),
-            align=align,
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
     @required_py314
@@ -246,7 +246,7 @@ class TestAlign:
                 {"- apples"}
             ---
             """),
-            align=align,
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
     @required_py314
@@ -257,7 +257,7 @@ class TestAlign:
             - bananas
             - cherries
         """)
-        assert snapshot == dedent(t("{items}", items=items), align=align)
+        assert snapshot == dedent(t("{items}", items=items), align=align)  # pyright: ignore[reportCallIssue]: matrix type checking
 
     @required_py314
     @staticmethod
@@ -273,7 +273,7 @@ class TestAlign:
                 {items:{spec}}
             ---
             """, items=items, spec=spec),
-            align=align,
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
     @required_py314
@@ -298,7 +298,7 @@ class TestAlign:
                 {items:{spec}:\n^{size}}
             ---
             """, items=items, spec=spec, size=size),
-            align=align,
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
     @required_py314

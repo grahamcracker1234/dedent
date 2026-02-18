@@ -1,5 +1,13 @@
 version: "3"
 
+vars:
+  PY_VERSIONS:
+    - "3.10"
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
+
 tasks:
   check:format:
     desc: "Check formatting with Ruff"
@@ -19,7 +27,21 @@ tasks:
 
   check:types:
     desc: "Type checking with basedpyright"
+    vars:
+      MATRIX: "{{.MATRIX | default false}}"
+    cmds:
+      - task: '{{if eq .MATRIX "true"}}check:types:_matrix{{else}}check:types:_single{{end}}'
+
+  check:types:_single:
+    internal: true
     cmd: uv run basedpyright {{.CLI_ARGS}}
+
+  check:types:_matrix:
+    internal: true
+    cmds:
+      - for:
+          var: PY_VERSIONS
+        cmd: uv run -p {{.ITEM}} basedpyright {{.CLI_ARGS}}
 
   check:tests:
     desc: "Testing with pytest"
@@ -40,11 +62,7 @@ tasks:
     internal: true
     cmds:
       - for:
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
+          var: PY_VERSIONS
         cmd: uv run -p {{.ITEM}} pytest {{.COV_ARGS}} {{.CLI_ARGS}}
 
   check:
@@ -56,6 +74,8 @@ tasks:
       - task: check:format
       - task: check:lint
       - task: check:types
+        vars:
+          MATRIX: "{{.MATRIX}}"
       - task: check:tests
         vars:
           COVERAGE: "{{.COVERAGE}}"
