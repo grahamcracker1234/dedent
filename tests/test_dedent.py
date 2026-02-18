@@ -35,6 +35,9 @@ def t(source: str, /, **ns: object) -> _T:
     return cast("_T", eval(code, ns))  # noqa: S307
 
 
+required_py314 = pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14+")
+
+
 class TestDedent:
     @staticmethod
     def test_works_without_interpolation(snapshot: SnapshotAssertion) -> None:
@@ -43,6 +46,7 @@ class TestDedent:
             third
         """)
 
+    @required_py314
     @staticmethod
     def test_works_with_interpolation(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("""first {"line"}
@@ -50,6 +54,7 @@ class TestDedent:
             third
         """))  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_works_with_suppressed_newlines(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("""first \
@@ -66,6 +71,7 @@ class TestDedent:
             That's all.
         """)
 
+    @required_py314
     @staticmethod
     def test_works_with_multiple_blank_first_lines(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("""
@@ -75,6 +81,7 @@ class TestDedent:
             third
         """))  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_works_with_removing_same_number_of_spaces(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("""
@@ -121,6 +128,7 @@ class TestDedent:
     def test_escaped_explicit_newlines_and_tabs(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent("\\n\\tfirst\\n")
 
+    @required_py314
     @staticmethod
     def test_format_spec(snapshot: SnapshotAssertion) -> None:
         header = "Receipt"
@@ -133,6 +141,7 @@ class TestDedent:
             - Discount: {discount: 9.{decimals}%}
         """, header=header, total=total, discount=discount, decimals=decimals))  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_empty_format_spec(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("{123:}"))
@@ -210,6 +219,7 @@ class TestAlign:
     def spec(request: SubRequest) -> str:
         return request.param  # pyright: ignore[reportAny]: bad pytest typing
 
+    @required_py314
     @staticmethod
     def test_with_multiple_lines(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         items = dedent("""
@@ -227,6 +237,7 @@ class TestAlign:
             align=align,
         )  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_with_single_line(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         assert snapshot == dedent(
@@ -238,6 +249,7 @@ class TestAlign:
             align=align,
         )  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_no_indentation(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         items = dedent("""
@@ -247,6 +259,7 @@ class TestAlign:
         """)
         assert snapshot == dedent(t("{items}", items=items), align=align)
 
+    @required_py314
     @staticmethod
     def test_override(snapshot: SnapshotAssertion, align: AlignOption, spec: str) -> None:
         items = dedent("""
@@ -263,6 +276,7 @@ class TestAlign:
             align=align,
         )  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_override_with_format_spec(
         snapshot: SnapshotAssertion, align: AlignOption, spec: str
@@ -287,6 +301,7 @@ class TestAlign:
             align=align,
         )  # fmt: skip
 
+    @required_py314
     @staticmethod
     def test_unknown_format_spec() -> None:
         with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
@@ -302,6 +317,7 @@ class TestTyping:
             third
         """)
 
+    @required_py314
     @staticmethod
     def test_template(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("""

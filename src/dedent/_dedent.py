@@ -32,12 +32,11 @@ _INDENTED: Final = re.compile(r"^(\s+)")
 _INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
 _SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
 
-_START_PREFIX: Final = "\x00DEDENT_ALIGN_START:"
-_END_PREFIX: Final = "\x00DEDENT_ALIGN_END:"
+_ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
 _SEP: Final = "\x00"
 
 _ALIGN_MARKER: Final = re.compile(
-    rf"{_START_PREFIX}([a-f0-9]{{32}}){_SEP}(.*?){_END_PREFIX}\1{_SEP}",
+    rf"{_SEP}{_ALIGN_MARKER_PREFIX}:([a-f0-9]{{32}}){_SEP}(.*?){_SEP}{_ALIGN_MARKER_PREFIX}:\1{_SEP}",
     re.DOTALL,
 )
 
@@ -174,8 +173,8 @@ class Aligned:
     _ID: Final[str] = field(default_factory=lambda: uuid4().hex)
 
     def _wrap(self, text: str) -> str:
-        start = f"{_START_PREFIX}{self._ID}{_SEP}"
-        end = f"{_END_PREFIX}{self._ID}{_SEP}"
+        start = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
+        end = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
         return f"{start}{text}{end}"
 
     # NOTE: PEP 698: Override Decorator (3.12)
