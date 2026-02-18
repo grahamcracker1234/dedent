@@ -11,6 +11,7 @@ import pytest
 from _pytest.fixtures import SubRequest
 from syrupy.assertion import SnapshotAssertion
 
+from dedent import align as align_values
 from dedent import dedent
 from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
 
@@ -21,6 +22,7 @@ AlignOption = bool | Missing
 STRIP_OPTIONS: Final[list[StripOption]] = [MISSING, "smart", "all", "none"]
 ALIGN_OPTIONS: Final[list[AlignOption]] = [MISSING, False, True]
 
+required_py314 = pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14+")
 
 if sys.version_info >= (3, 14):
     from string.templatelib import Template
@@ -35,7 +37,8 @@ def t(source: str, /, **ns: object) -> _T:
     return cast("_T", eval(code, ns))  # noqa: S307
 
 
-required_py314 = pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14+")
+def identity(value: object) -> object:
+    return value
 
 
 class TestDedent:
@@ -54,6 +57,13 @@ class TestDedent:
             third
         """))  # fmt: skip
 
+    @staticmethod
+    def test_works_with_interpolation_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(f"""first {"line"}
+            {"second"}
+            third
+        """)
+
     @required_py314
     @staticmethod
     def test_works_with_suppressed_newlines(snapshot: SnapshotAssertion) -> None:
@@ -61,6 +71,13 @@ class TestDedent:
             {"second"}
             third
         """))  # fmt: skip
+
+    @staticmethod
+    def test_works_with_suppressed_newlines_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(f"""first \
+            {"second"}
+            third
+        """)
 
     @staticmethod
     def test_works_with_blank_first_line(snapshot: SnapshotAssertion) -> None:
@@ -81,6 +98,15 @@ class TestDedent:
             third
         """))  # fmt: skip
 
+    @staticmethod
+    def test_works_with_multiple_blank_first_lines_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+
+            first
+            second
+            third
+        """)
+
     @required_py314
     @staticmethod
     def test_works_with_removing_same_number_of_spaces(snapshot: SnapshotAssertion) -> None:
@@ -89,6 +115,14 @@ class TestDedent:
                 second
                       third
         """))  # fmt: skip
+
+    @staticmethod
+    def test_works_with_removing_same_number_of_spaces_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent("""
+           first
+                second
+                      third
+        """)
 
     @staticmethod
     def test_does_not_strip_explicit_newlines(snapshot: SnapshotAssertion) -> None:
@@ -141,10 +175,26 @@ class TestDedent:
             - Discount: {discount: 9.{decimals}%}
         """, header=header, total=total, discount=discount, decimals=decimals))  # fmt: skip
 
+    @staticmethod
+    def test_format_spec_legacy(snapshot: SnapshotAssertion) -> None:
+        header = "Receipt"
+        total = 123
+        discount = 0.123456789
+        decimals = 2
+        assert snapshot == dedent(f"""
+            {header:=^21}
+            - Total: {total: 9d}
+            - Discount: {discount: 9.{decimals}%}
+        """)  # pyright: ignore[reportArgumentType]
+
     @required_py314
     @staticmethod
     def test_empty_format_spec(snapshot: SnapshotAssertion) -> None:
         assert snapshot == dedent(t("{123:}"))
+
+    @staticmethod
+    def test_empty_format_spec_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(f"{123:}")  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("strip", STRIP_OPTIONS)
@@ -237,6 +287,24 @@ class TestAlign:
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
+    @staticmethod
+    def test_with_multiple_lines_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+
+        assert snapshot == dedent(
+            f"""
+            List:
+                {align_fn(items)}
+            ---
+            """,  # pyright: ignore[reportArgumentType]: matrix type checking
+        )
+
     @required_py314
     @staticmethod
     def test_with_single_line(snapshot: SnapshotAssertion, align: AlignOption) -> None:
@@ -249,6 +317,18 @@ class TestAlign:
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
+    @staticmethod
+    def test_with_single_line_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+
+        assert snapshot == dedent(
+            f"""
+            List:
+                {align_fn("- apples")}
+            ---
+            """,  # pyright: ignore[reportArgumentType]: matrix type checking
+        )
+
     @required_py314
     @staticmethod
     def test_no_indentation(snapshot: SnapshotAssertion, align: AlignOption) -> None:
@@ -258,6 +338,17 @@ class TestAlign:
             - cherries
         """)
         assert snapshot == dedent(t("{items}", items=items), align=align)  # pyright: ignore[reportCallIssue]: matrix type checking
+
+    @staticmethod
+    def test_no_indentation_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+
+        items = dedent("""
+            - apples
+            - bananas
+            - cherries
+        """)
+        assert snapshot == dedent(f"{align_fn(items)}")  # pyright: ignore[reportArgumentType]: matrix type checking
 
     @required_py314
     @staticmethod
@@ -306,6 +397,17 @@ class TestAlign:
     def test_unknown_format_spec() -> None:
         with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
             _ = dedent(t("{123:algn}"))  # misspelled "align"
+
+    @required_py314
+    @staticmethod
+    def test_empty_string(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        assert snapshot == dedent("", align=align)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @staticmethod
+    def test_empty_string_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+
+        assert snapshot == dedent(align_fn(""), align=align)  # pyright: ignore[reportArgumentType]: matrix type checking
 
 
 class TestTyping:
