@@ -4,23 +4,35 @@ Test functionality.
 Adapted from https://github.com/dmnd/dedent/blob/7b38d9/src/dedent.test.ts
 """
 
-from typing import TYPE_CHECKING, Final
+import sys
+from typing import Final, cast
 
 import pytest
+from _pytest.fixtures import SubRequest
+from syrupy.assertion import SnapshotAssertion
 
 from dedent import dedent
 from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
 
-if TYPE_CHECKING:
-    from _pytest.fixtures import SubRequest
-    from syrupy.assertion import SnapshotAssertion
-
-    type StripOption = Strip | Missing
-    type AlignOption = bool | Missing
+StripOption = Strip | Missing
+AlignOption = bool | Missing
 
 
 STRIP_OPTIONS: Final[list[StripOption]] = [MISSING, "smart", "all", "none"]
 ALIGN_OPTIONS: Final[list[AlignOption]] = [MISSING, False, True]
+
+
+if sys.version_info >= (3, 14):
+    from string.templatelib import Template
+
+    _T = Template
+else:
+    _T = str
+
+
+def t(source: str, /, **ns: object) -> _T:
+    code = compile(f"t'''{source}'''", "<t-string>", "eval")
+    return cast("_T", eval(code, ns))  # noqa: S307
 
 
 class TestDedent:
@@ -33,17 +45,17 @@ class TestDedent:
 
     @staticmethod
     def test_works_with_interpolation(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"""first {"line"}
+        assert snapshot == dedent(t("""first {"line"}
             {"second"}
             third
-        """)
+        """))  # fmt: skip
 
     @staticmethod
     def test_works_with_suppressed_newlines(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"""first \
+        assert snapshot == dedent(t("""first \
             {"second"}
             third
-        """)
+        """))  # fmt: skip
 
     @staticmethod
     def test_works_with_blank_first_line(snapshot: SnapshotAssertion) -> None:
@@ -56,20 +68,20 @@ class TestDedent:
 
     @staticmethod
     def test_works_with_multiple_blank_first_lines(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"""
+        assert snapshot == dedent(t("""
 
             first
             second
             third
-        """)
+        """))  # fmt: skip
 
     @staticmethod
     def test_works_with_removing_same_number_of_spaces(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"""
+        assert snapshot == dedent(t("""
            first
                 second
                       third
-        """)
+        """))  # fmt: skip
 
     @staticmethod
     def test_does_not_strip_explicit_newlines(snapshot: SnapshotAssertion) -> None:
@@ -111,19 +123,19 @@ class TestDedent:
 
     @staticmethod
     def test_format_spec(snapshot: SnapshotAssertion) -> None:
+        header = "Receipt"
         total = 123
         discount = 0.123456789
-        header = "Receipt"
         decimals = 2
-        assert snapshot == dedent(t"""
+        assert snapshot == dedent(t("""
             {header:=^21}
             - Total: {total: 9d}
             - Discount: {discount: 9.{decimals}%}
-        """)
+        """, header=header, total=total, discount=discount, decimals=decimals))  # fmt: skip
 
     @staticmethod
     def test_empty_format_spec(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"{123:}")
+        assert snapshot == dedent(t("{123:}"))
 
 
 @pytest.mark.parametrize("strip", STRIP_OPTIONS)
@@ -207,24 +219,24 @@ class TestAlign:
         """)
 
         assert snapshot == dedent(
-            t"""
+            t("""
             List:
                 {items}
             ---
-            """,
+            """, items=items),
             align=align,
-        )
+        )  # fmt: skip
 
     @staticmethod
     def test_with_single_line(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         assert snapshot == dedent(
-            t"""
+            t("""
             List:
                 {"- apples"}
             ---
-            """,
+            """),
             align=align,
-        )
+        )  # fmt: skip
 
     @staticmethod
     def test_no_indentation(snapshot: SnapshotAssertion, align: AlignOption) -> None:
@@ -233,7 +245,7 @@ class TestAlign:
             - bananas
             - cherries
         """)
-        assert snapshot == dedent(t"{items}", align=align)
+        assert snapshot == dedent(t("{items}", items=items), align=align)
 
     @staticmethod
     def test_override(snapshot: SnapshotAssertion, align: AlignOption, spec: str) -> None:
@@ -243,13 +255,13 @@ class TestAlign:
             - cherries
         """)
         assert snapshot == dedent(
-            t"""
+            t("""
             List:
                 {items:{spec}}
             ---
-            """,
+            """, items=items, spec=spec),
             align=align,
-        )
+        )  # fmt: skip
 
     @staticmethod
     def test_override_with_format_spec(
@@ -266,19 +278,19 @@ class TestAlign:
         size = len(items) + 2
 
         assert snapshot == dedent(
-            t"""
+            t("""
             List:
                 {items:\n^{size}:{spec}}
                 {items:{spec}:\n^{size}}
             ---
-            """,
+            """, items=items, spec=spec, size=size),
             align=align,
-        )
+        )  # fmt: skip
 
     @staticmethod
     def test_unknown_format_spec() -> None:
         with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
-            _ = dedent(t"{123:algn}")  # misspelled "align"
+            _ = dedent(t("{123:algn}"))  # misspelled "align"
 
 
 class TestTyping:
@@ -292,11 +304,11 @@ class TestTyping:
 
     @staticmethod
     def test_template(snapshot: SnapshotAssertion) -> None:
-        assert snapshot == dedent(t"""
+        assert snapshot == dedent(t("""
             {"first"}
             {"second"}
             {"third"}
-        """)
+        """))  # fmt: skip
 
     @staticmethod
     def test_non_literal(snapshot: SnapshotAssertion) -> None:
