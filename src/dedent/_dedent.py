@@ -358,15 +358,16 @@ if sys.version_info >= (3, 14):
             align: Whether to align multiline interpolated values by indenting subsequent lines to
                 match the indentation of the current line. Defaults to False. Can be overridden
                 per-value using format spec directives.
-            strip: Whether to remove leading and trailing whitespace from the result. Defaults to
-                True.
+            strip: How to strip leading/trailing whitespace. ``"smart"`` (default) strips one
+                leading and one trailing ``\\n``-bounded blank segment. ``"all"`` strips all
+                surrounding whitespace. ``"none"`` leaves the string unchanged.
 
         Raises:
             TypeError: If the input is not a string or Template object.
 
         Returns:
-            The dedented string with common leading whitespace removed. If `strip` is True, leading
-            and trailing whitespace is also removed.
+            The dedented string with common leading whitespace removed, stripped according to
+            the ``strip`` mode.
         """
         align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP

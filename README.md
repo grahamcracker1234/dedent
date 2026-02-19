@@ -2,6 +2,8 @@
 
 What [`textwrap.dedent`](https://docs.python.org/3/library/textwrap.html#textwrap.dedent) should have been.
 
+Dedent and strip multiline strings, and keep interpolated values aligned—without manual whitespace wrangling. Supports Python 3.10+ (f-strings) and Python 3.14+ (t-strings).
+
 ## Table of Contents
 
 - [Usage](#usage)
@@ -86,9 +88,9 @@ print(shopping_list)
 
 When an interpolation evaluates to a multiline string, only its first line is placed where the `{...}` appears. Subsequent lines keep whatever indentation they already had (often none), so they can appear "shifted left". Alignment fixes this by indenting subsequent lines to match the first.
 
-#### Format Spec Directives (Recommended)
+#### Format Spec Directives (Python 3.14+)
 
-With t-strings (Python 3.14+), use format spec directives for per-value control:
+Use format spec directives inside t-strings for per-value control:
 
 - `{value:align}` - Align this multiline value to the current indentation
 - `{value:noalign}` - Disable alignment for this value [^1]
@@ -120,11 +122,11 @@ Not aligned:
 - two
 ```
 
-[^1]: Only has an effect when using the [`align=True` argument](#align-argument).
+[^1]: Only has an effect when using the [`align=True` argument](#align-argument-python-314).
 
 [^2]: This rarely makes sense, unless you are also using custom format specifications, but nonetheless works.
 
-#### `align` Argument
+#### `align` Argument (Python 3.14+)
 
 Pass `align=True` to enable alignment globally for all t-string interpolations. Format spec directives override this.
 
@@ -162,35 +164,88 @@ List 2:
 
 #### `align()` for Python 3.10–3.13
 
-On Python 3.10–3.13, use `align(value)` with f-strings instead of t-string format spec directives.
+On Python 3.10–3.13, t-strings are not available. Instead, wrap interpolated values with `align()` inside an f-string to get the same indentation alignment.
+
+```python
+from dedent import align, dedent
+
+items = dedent("""
+    - one
+    - two
+""")
+
+result = dedent(f"""
+    Aligned:
+        {align(items)}
+    Not aligned:
+        {items}
+""")
+print(result)
+```
+
+```plaintext
+Aligned:
+    - one
+    - two
+Not aligned:
+    - one
+- two
+```
 
 ### `strip`
 
-By default, `dedent` will strip leading and trailing whitespace from the result.
+The `strip` parameter controls how leading and trailing whitespace is removed after dedenting. It accepts three modes:
 
-This can be disabled by setting `strip=False`.
+#### `"smart"` (default)
+
+Strips one leading and one trailing newline-bounded blank segment. This is the default behavior and handles the common case of triple-quoted strings that start and end with a newline.
 
 ```python
 from dedent import dedent
 
-strip = dedent("""
+result = dedent("""
     hello!
 """)
+print(repr(result))
+# 'hello!'
+```
 
-no_strip = dedent(
+#### `"all"`
+
+Strips all surrounding whitespace, equivalent to calling `.strip()` on the result.
+
+```python
+from dedent import dedent
+
+result = dedent(
+    """
+
+
+        hello!
+
+
+    """,
+    strip="all",
+)
+print(repr(result))
+# 'hello!'
+```
+
+#### `"none"`
+
+Leaves whitespace exactly as-is after dedenting.
+
+```python
+from dedent import dedent
+
+result = dedent(
     """
         hello!
     """,
-    strip=False
+    strip="none",
 )
-
-print(f"{strip=}")
-print(f"{no_strip=}")
-```
-
-```plaintext
-strip='hello!'
-no_strip='\nhello!\n'
+print(repr(result))
+# '\nhello!\n'
 ```
 
 ## Why `textwrap.dedent` Falls Short
@@ -309,4 +364,22 @@ Groceries:
 ---
 ```
 
-On Python 3.10–3.13, use `align(groceries)` with an f-string instead.
+On Python 3.10–3.13, use `align(groceries)` inside an f-string instead:
+
+```python
+from dedent import align, dedent
+
+groceries = dedent("""
+    - apples
+    - bananas
+    - cherries
+""")
+
+shopping_list = dedent(f"""
+    Groceries:
+        {align(groceries)}
+    ---
+""")
+
+print(shopping_list)
+```
