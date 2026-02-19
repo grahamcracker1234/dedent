@@ -2,9 +2,6 @@
 
 What [`textwrap.dedent`](https://docs.python.org/3/library/textwrap.html#textwrap.dedent) should have been.
 
-> [!IMPORTANT]
-> Currently, only supports Python 3.14+ due to the use of t-strings. [Support for 3.10+ is planned.](https://github.com/grahamcracker1234/dedent/issues/4)
-
 ## Table of Contents
 
 - [Usage](#usage)
@@ -35,7 +32,7 @@ print(message)
 # Hello,
 # World!
 
-# Works with t-strings for deferred interpolation
+# Works with t-strings for deferred interpolation (Python 3.14+)
 name = "Alice"
 greeting = dedent(t"""
     Hello, {name}!
@@ -62,6 +59,27 @@ print(shopping_list)
 # ---
 ```
 
+On Python 3.10–3.13, use f-strings with `align()` instead:
+
+```python
+from dedent import align, dedent
+
+items = dedent("""
+    - apples
+    - bananas
+""")
+shopping_list = dedent(f"""
+    Groceries:
+        {align(items)}
+    ---
+""")
+print(shopping_list)
+# Groceries:
+#     - apples
+#     - bananas
+# ---
+```
+
 ## Options
 
 ### `align`
@@ -70,7 +88,7 @@ When an interpolation evaluates to a multiline string, only its first line is pl
 
 #### Format Spec Directives (Recommended)
 
-The recommended way to control alignment is via format spec directives. This gives you fine-grained, per-value control directly where the interpolation occurs:
+With t-strings (Python 3.14+), use format spec directives for per-value control:
 
 - `{value:align}` - Align this multiline value to the current indentation
 - `{value:noalign}` - Disable alignment for this value [^1]
@@ -108,7 +126,7 @@ Not aligned:
 
 #### `align` Argument
 
-Alternatively, pass `align=True` to enable alignment globally for all interpolations. Useful when you have many interpolations that all need alignment. Format spec directives override this.
+Pass `align=True` to enable alignment globally for all t-string interpolations. Format spec directives override this.
 
 ```python
 from dedent import dedent
@@ -141,6 +159,10 @@ List 2:
     - two
 ---
 ```
+
+#### `align()` for Python 3.10–3.13
+
+On Python 3.10–3.13, use `align(value)` with f-strings instead of t-string format spec directives.
 
 ### `strip`
 
@@ -286,3 +308,5 @@ Groceries:
     - cherries
 ---
 ```
+
+On Python 3.10–3.13, use `align(groceries)` with an f-string instead.
