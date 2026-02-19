@@ -13,11 +13,17 @@ from syrupy.assertion import SnapshotAssertion
 
 from dedent import align as align_values
 from dedent import dedent
-from dedent._dedent import MISSING, AlignSpec, Missing, Strip  # noqa: PLC2701
+from dedent._dedent import (
+    _ALIGN_MARKER_PREFIX,  # noqa: PLC2701  # pyright: ignore[reportPrivateUsage]
+    _SEP,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
+    MISSING,  # noqa: PLC2701
+    AlignSpec,  # noqa: PLC2701
+    Missing,  # noqa: PLC2701
+    Strip,  # noqa: PLC2701
+)  # pyright: ignore[reportPrivateUsage]
 
 StripOption = Strip | Missing
 AlignOption = bool | Missing
-
 
 STRIP_OPTIONS: Final[list[StripOption]] = [MISSING, "smart", "all", "none"]
 ALIGN_OPTIONS: Final[list[AlignOption]] = [MISSING, False, True]
@@ -258,7 +264,7 @@ class TestStrip:
         )
 
 
-class TestAlign:
+class TestAlign:  # noqa: PLR0904
     @pytest.fixture(scope="class", params=ALIGN_OPTIONS)
     @staticmethod
     def align(request: SubRequest) -> AlignOption:
@@ -401,13 +407,205 @@ class TestAlign:
     @required_py314
     @staticmethod
     def test_empty_string(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        assert snapshot == dedent("", align=align)  # pyright: ignore[reportArgumentType]: matrix type checking
+        assert snapshot == dedent("", align=align)  # pyright: ignore[reportArgumentType,reportCallIssue]: matrix type checking
 
     @staticmethod
     def test_empty_string_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         align_fn = align_values if isinstance(align, bool) and align else identity
 
-        assert snapshot == dedent(align_fn(""), align=align)  # pyright: ignore[reportArgumentType]: matrix type checking
+        assert snapshot == dedent(f"{align_fn('')}")  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_two_aligned_values(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        a = "line1\nline2"
+        b = "foo\nbar"
+        assert snapshot == dedent(
+            t("""
+            A:
+                {a}
+            B:
+                {b}
+            """, a=a, b=b),
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_two_aligned_values_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+        a = "line1\nline2"
+        b = "foo\nbar"
+        assert snapshot == dedent(f"""
+            A:
+                {align_fn(a)}
+            B:
+                {align_fn(b)}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_aligned_and_plain(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        items = "- apples\n- bananas"
+        plain = "hello"
+        assert snapshot == dedent(
+            t("""
+            List:
+                {items}
+            Plain:
+                {plain}
+            """, items=items, plain=plain),
+            align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_aligned_and_plain_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = align_values if isinstance(align, bool) and align else identity
+        items = "- apples\n- bananas"
+        plain = "hello"
+        assert snapshot == dedent(f"""
+            List:
+                {align_fn(items)}
+            Plain:
+                {plain}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_str_conversion(snapshot: SnapshotAssertion) -> None:
+        items = "- apples\n- bananas"
+        assert snapshot == dedent(
+            t("""
+            List:
+                {items!s}
+            """, items=items),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_str_conversion_legacy(snapshot: SnapshotAssertion) -> None:
+        items = "- apples\n- bananas"
+        assert snapshot == dedent(f"""
+            List:
+                {align_values(items)!s}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_repr_conversion(snapshot: SnapshotAssertion) -> None:
+        value = "hello"
+        assert snapshot == dedent(
+            t("""
+            Value:
+                {value!r}
+            """, value=value),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_repr_conversion_legacy(snapshot: SnapshotAssertion) -> None:
+        value = "hello"
+        assert snapshot == dedent(f"""
+            Value:
+                {align_values(value)!r}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_numeric_format(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(t("""
+            Value:
+                {1.23456:.2f}
+        """),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_numeric_format_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(f"""
+            Value:
+                {align_values(1.23456):.2f}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_string_format(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(
+            t("""
+            Header:
+                {"hi":>10}
+            """),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+
+    @staticmethod
+    def test_string_format_legacy(snapshot: SnapshotAssertion) -> None:
+        assert snapshot == dedent(f"""
+            Header:
+                {align_values("hi"):>10}
+        """)  # pyright: ignore[reportArgumentType]: matrix type checking
+
+    @required_py314
+    @staticmethod
+    def test_no_null_bytes_in_output() -> None:
+        items = "- apples\n- bananas"
+        result = dedent(  # pyright: ignore[reportUnknownVariableType]
+            t("""
+            List:
+                {items}
+            """, items=items),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )  # fmt: skip
+        assert _SEP not in result
+
+    @staticmethod
+    def test_no_null_bytes_in_output_legacy() -> None:
+        items = "- apples\n- bananas"
+        result = dedent(f"""
+            List:
+                {align_values(items)}
+        """)  # pyright: ignore[reportArgumentType,reportUnknownVariableType]: matrix type checking
+        assert _SEP not in result
+
+    @required_py314
+    @staticmethod
+    def test_no_markers_in_output() -> None:
+        items = "- apples\n- bananas"
+        result = dedent(  # pyright: ignore[reportUnknownVariableType]
+            t("{items}", items=items),
+            align=True,  # pyright: ignore[reportCallIssue]: matrix type checking
+        )
+        assert _ALIGN_MARKER_PREFIX not in result
+
+    @staticmethod
+    def test_no_markers_in_output_legacy() -> None:
+        items = "- apples\n- bananas"
+        result = dedent(f"{align_values(items)}")  # pyright: ignore[reportArgumentType,reportUnknownVariableType]: matrix type checking
+        assert _ALIGN_MARKER_PREFIX not in result
+
+    @staticmethod
+    def test_aligned_str_contains_markers() -> None:
+        hello = "hello"
+        wrapper = align_values(hello)
+        text = str(wrapper)
+        assert _SEP in text
+        assert hello in text
+
+    @staticmethod
+    def test_aligned_repr_contains_markers() -> None:
+        hello = "hello"
+        wrapper = align_values(hello)
+        text = repr(wrapper)
+        assert _SEP in text
+        assert repr(hello) in text
+
+    @staticmethod
+    def test_aligned_format_contains_markers() -> None:
+        value = 1.23
+        wrapper = align_values(value)
+        format_spec = ".1f"
+        text = format(wrapper, format_spec)
+        assert _SEP in text
+        assert format(value, format_spec) in text
 
 
 class TestTyping:
