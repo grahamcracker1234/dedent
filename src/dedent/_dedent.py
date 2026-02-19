@@ -229,6 +229,7 @@ def process_align_markers(string: str) -> str:
         # Preceding text is what we've built so far
         preceding_text = "".join(result_parts)
         value = match.group(2)
+        value = process_align_markers(value)  # Handle nested markers first
         aligned_value = _align_value(value, preceding_text)
         result_parts.append(aligned_value)
         last_end = match.end()

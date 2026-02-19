@@ -582,6 +582,16 @@ class TestAlign:  # noqa: PLR0904
         assert _ALIGN_MARKER_PREFIX not in result
 
     @staticmethod
+    def test_nested_align_markers_processed() -> None:
+        inner = "line1\nline2"
+        outer = f"outer {align_values(inner)}"
+        result = dedent(f"  {align_values(outer)}")  # pyright: ignore[reportArgumentType,reportUnknownVariableType]: matrix type checking
+        assert _ALIGN_MARKER_PREFIX not in result
+        assert _SEP not in result
+        assert "line1" in result
+        assert "line2" in result
+
+    @staticmethod
     def test_aligned_str_contains_markers() -> None:
         hello = "hello"
         wrapper = align_values(hello)
