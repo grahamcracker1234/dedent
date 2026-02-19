@@ -150,9 +150,8 @@ class Aligned:
     _ID: Final[str] = field(default_factory=lambda: uuid4().hex, init=False)
 
     def _wrap(self, text: str) -> str:
-        start = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
-        end = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
-        return f"{start}{text}{end}"
+        marker = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
+        return f"{marker}{text}{marker}"
 
     # NOTE: PEP 698: Override Decorator (3.12)
     # @overload
