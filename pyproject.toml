@@ -30,6 +30,7 @@ classifiers = [
 keywords = [
     # Core
     "dedent",
+    "undent",
     "indent",
     "indentation",
     "textwrap",
