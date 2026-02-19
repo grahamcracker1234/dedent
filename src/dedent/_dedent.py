@@ -57,30 +57,7 @@ def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None
     return None
 
 
-def _align(value: str, preceding_text: str) -> str:
-    """
-    Align multiline value to match the indentation of the current line.
-
-    If the value contains newlines, each line after the first is indented to match the indentation
-    of the current line in the preceding text.
-
-    Args:
-        value: The string value to align, potentially containing newlines.
-        preceding_text: The text that precedes this value, used to determine the current line's
-            indentation.
-
-    Returns:
-        The value with subsequent lines indented to match the current line's indentation, or the
-        original value if no indentation is found or if the value doesn't contain newlines.
-    """
-    current_line = preceding_text[preceding_text.rfind("\n") + 1 :]
-    if indent := _safe_match_first_group(_INDENTED, current_line):
-        return value.replace("\n", "\n" + indent)
-
-    return value
-
-
-def align_value(value: str, preceding_text: str) -> str:
+def _align_value(value: str, preceding_text: str) -> str:
     """
     Align multiline value to match the indentation of the current line.
 
@@ -253,7 +230,7 @@ def process_align_markers(string: str) -> str:
         # Preceding text is what we've built so far
         preceding_text = "".join(result_parts)
         value = match.group(2)
-        aligned_value = align_value(value, preceding_text)
+        aligned_value = _align_value(value, preceding_text)
         result_parts.append(aligned_value)
         last_end = match.end()
 
@@ -352,7 +329,7 @@ if sys.version_info >= (3, 14):
         value = str(value)
         should_align = align_override if align_override is not None else align
         if should_align:
-            value = _align(value, preceding_text)
+            value = _align_value(value, preceding_text)
 
         return value
 
