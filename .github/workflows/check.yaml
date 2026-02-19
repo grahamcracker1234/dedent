@@ -28,6 +28,6 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
       - name: Install the Project
-        run: uv sync --all-extras --dev
+        run: uv sync --locked --all-extras --dev
       - name: Check
         run: task check MATRIX=true

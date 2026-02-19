@@ -147,7 +147,7 @@ class Aligned:
     """
 
     _value: object
-    _ID: Final[str] = field(default_factory=lambda: uuid4().hex)
+    _ID: Final[str] = field(default_factory=lambda: uuid4().hex, init=False)
 
     def _wrap(self, text: str) -> str:
         start = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{self._ID}{_SEP}"
