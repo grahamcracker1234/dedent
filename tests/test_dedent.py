@@ -3,8 +3,11 @@ Test functionality.
 
 Adapted from https://github.com/dmnd/dedent/blob/7b38d9/src/dedent.test.ts
 """
+# ruff: noqa: PLC2701
+# pyright: reportPrivateUsage=false
 
 import sys
+from collections.abc import Callable
 from typing import Final, cast
 
 import pytest
@@ -13,14 +16,7 @@ from syrupy.assertion import SnapshotAssertion
 
 from dedent import align as align_values
 from dedent import dedent
-from dedent._dedent import (
-    _ALIGN_MARKER_PREFIX,  # noqa: PLC2701  # pyright: ignore[reportPrivateUsage]
-    _SEP,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
-    MISSING,  # noqa: PLC2701
-    AlignSpec,  # noqa: PLC2701
-    Missing,  # noqa: PLC2701
-    Strip,  # noqa: PLC2701
-)  # pyright: ignore[reportPrivateUsage]
+from dedent._dedent import _ALIGN_MARKER_PREFIX, _SEP, MISSING, AlignSpec, Missing, Strip
 
 StripOption = Strip | Missing
 AlignOption = bool | Missing
@@ -41,10 +37,6 @@ else:
 def t(source: str, /, **ns: object) -> _T:
     code = compile(f"t'''{source}'''", "<t-string>", "eval")
     return cast("_T", eval(code, ns))  # noqa: S307
-
-
-def identity(value: object) -> object:
-    return value
 
 
 class TestDedent:
@@ -275,6 +267,13 @@ class TestAlign:  # noqa: PLR0904
     def spec(request: SubRequest) -> str:
         return request.param  # pyright: ignore[reportAny]: bad pytest typing
 
+    @staticmethod
+    def align_to_fn(align: AlignOption) -> Callable[..., object]:
+        def identity(value: object) -> object:
+            return value
+
+        return align_values if isinstance(align, bool) and align else identity
+
     @required_py314
     @staticmethod
     def test_with_multiple_lines(snapshot: SnapshotAssertion, align: AlignOption) -> None:
@@ -293,9 +292,10 @@ class TestAlign:  # noqa: PLR0904
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
-    @staticmethod
-    def test_with_multiple_lines_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_with_multiple_lines_legacy(
+        self, snapshot: SnapshotAssertion, align: AlignOption
+    ) -> None:
+        align_fn = self.align_to_fn(align)
 
         items = dedent("""
             - apples
@@ -323,9 +323,8 @@ class TestAlign:  # noqa: PLR0904
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
-    @staticmethod
-    def test_with_single_line_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_with_single_line_legacy(self, snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = self.align_to_fn(align)
 
         assert snapshot == dedent(
             f"""
@@ -345,9 +344,8 @@ class TestAlign:  # noqa: PLR0904
         """)
         assert snapshot == dedent(t("{items}", items=items), align=align)  # pyright: ignore[reportCallIssue]: matrix type checking
 
-    @staticmethod
-    def test_no_indentation_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_no_indentation_legacy(self, snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = self.align_to_fn(align)
 
         items = dedent("""
             - apples
@@ -409,9 +407,8 @@ class TestAlign:  # noqa: PLR0904
     def test_empty_string(snapshot: SnapshotAssertion, align: AlignOption) -> None:
         assert snapshot == dedent("", align=align)  # pyright: ignore[reportArgumentType,reportCallIssue]: matrix type checking
 
-    @staticmethod
-    def test_empty_string_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_empty_string_legacy(self, snapshot: SnapshotAssertion, align: AlignOption) -> None:
+        align_fn = self.align_to_fn(align)
 
         assert snapshot == dedent(f"{align_fn('')}")  # pyright: ignore[reportArgumentType]: matrix type checking
 
@@ -430,9 +427,10 @@ class TestAlign:  # noqa: PLR0904
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
-    @staticmethod
-    def test_two_aligned_values_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_two_aligned_values_legacy(
+        self, snapshot: SnapshotAssertion, align: AlignOption
+    ) -> None:
+        align_fn = self.align_to_fn(align)
         a = "line1\nline2"
         b = "foo\nbar"
         assert snapshot == dedent(f"""
@@ -457,9 +455,10 @@ class TestAlign:  # noqa: PLR0904
             align=align,  # pyright: ignore[reportCallIssue]: matrix type checking
         )  # fmt: skip
 
-    @staticmethod
-    def test_aligned_and_plain_legacy(snapshot: SnapshotAssertion, align: AlignOption) -> None:
-        align_fn = align_values if isinstance(align, bool) and align else identity
+    def test_aligned_and_plain_legacy(
+        self, snapshot: SnapshotAssertion, align: AlignOption
+    ) -> None:
+        align_fn = self.align_to_fn(align)
         items = "- apples\n- bananas"
         plain = "hello"
         assert snapshot == dedent(f"""
