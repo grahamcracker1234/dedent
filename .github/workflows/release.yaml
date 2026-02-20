@@ -4,6 +4,8 @@ on:
   push:
     tags: ["v*"]
 
+permissions: {}
+
 jobs:
   check:
     uses: ./.github/workflows/check.yaml

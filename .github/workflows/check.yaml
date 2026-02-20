@@ -3,6 +3,7 @@ name: Check
 on:
   workflow_call:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -16,6 +17,7 @@ permissions:
 
 jobs:
   check:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
