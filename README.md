@@ -65,6 +65,8 @@ When an interpolation evaluates to a multiline string, only its first line is pl
 
 #### Format Spec Directives
 
+> Requires Python 3.14+ (t-strings).
+
 Use format spec directives inside t-strings for per-value control:
 
 - `{value:align}` - Align this multiline value to the current indentation
@@ -100,6 +102,8 @@ print(result)
 [^2]: This rarely makes sense, unless you are also using custom format specifications, but nonetheless works.
 
 #### `align` Argument
+
+> Requires Python 3.14+ (t-strings).
 
 Pass `align=True` to enable alignment globally for all t-string interpolations. Format spec directives override this.
 
@@ -138,7 +142,7 @@ The `strip` parameter controls how leading and trailing whitespace is removed af
 
 #### `"smart"` (default)
 
-Strips one leading and one trailing newline-bounded blank segment. This is the default behavior and handles the common case of triple-quoted strings that start and end with a newline.
+Strips one leading and trailing newline-bounded blank segment. Handles the common case of triple-quoted strings that start and end with a newline.
 
 ```python
 from dedent import dedent
@@ -153,7 +157,7 @@ print(repr(result))
 
 #### `"all"`
 
-Strips all surrounding whitespace, equivalent to calling `.strip()` on the result.
+Strips all surrounding whitespace, equivalent to calling `.strip()` on the result. Use when the string may have extra blank lines you want removed.
 
 ```python
 from dedent import dedent
@@ -174,7 +178,7 @@ print(repr(result))
 
 #### `"none"`
 
-Leaves whitespace exactly as-is after dedenting.
+Leaves whitespace exactly as-is after dedenting. Use when you need to preserve exact whitespace, e.g. for diff output or tests.
 
 ```python
 from dedent import dedent
@@ -249,7 +253,7 @@ print(result)
 # - two
 ```
 
-> There is no equivalent of the [`align` argument](#align-argument) in Python 3.10-3.13. There is no way to automatically align multiline values automatically when using f-strings.
+> There is no equivalent of the [`align` argument](#align-argument) in Python 3.10-3.13. There is no way to automatically align multiline values when using f-strings.
 
 ## Why `textwrap.dedent` Falls Short
 
