@@ -13,7 +13,7 @@ Key features:
 - Combines dedent directives with standard Python format specs
 """
 
-from ._dedent import dedent
+from ._dedent import align, dedent
 from ._version import __version__, __version_tuple__
 
-__all__ = ["__version__", "__version_tuple__", "dedent"]
+__all__ = ["__version__", "__version_tuple__", "align", "dedent"]
