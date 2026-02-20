@@ -1,4 +1,76 @@
 # serializer version: 1
+# name: TestAlign.test_aligned_and_plain[False]
+  '''
+  List:
+      - apples
+  - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_aligned_and_plain[True]
+  '''
+  List:
+      - apples
+      - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_aligned_and_plain[align0]
+  '''
+  List:
+      - apples
+  - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_aligned_and_plain_legacy[False]
+  '''
+  List:
+      - apples
+  - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_aligned_and_plain_legacy[True]
+  '''
+  List:
+      - apples
+      - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_aligned_and_plain_legacy[align0]
+  '''
+  List:
+      - apples
+  - bananas
+  Plain:
+      hello
+  '''
+# ---
+# name: TestAlign.test_empty_string[False]
+  ''
+# ---
+# name: TestAlign.test_empty_string[True]
+  ''
+# ---
+# name: TestAlign.test_empty_string[align0]
+  ''
+# ---
+# name: TestAlign.test_empty_string_legacy[False]
+  ''
+# ---
+# name: TestAlign.test_empty_string_legacy[True]
+  ''
+# ---
+# name: TestAlign.test_empty_string_legacy[align0]
+  ''
+# ---
 # name: TestAlign.test_no_indentation[False]
   '''
   - apples
@@ -18,6 +90,39 @@
   - apples
   - bananas
   - cherries
+  '''
+# ---
+# name: TestAlign.test_no_indentation_legacy[False]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_no_indentation_legacy[True]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_no_indentation_legacy[align0]
+  '''
+  - apples
+  - bananas
+  - cherries
+  '''
+# ---
+# name: TestAlign.test_numeric_format
+  '''
+  Value:
+      1.23
+  '''
+# ---
+# name: TestAlign.test_numeric_format_legacy
+  '''
+  Value:
+      1.23
   '''
 # ---
 # name: TestAlign.test_override[False-align]
@@ -138,6 +243,104 @@
   ---
   '''
 # ---
+# name: TestAlign.test_repr_conversion
+  '''
+  Value:
+      'hello'
+  '''
+# ---
+# name: TestAlign.test_repr_conversion_legacy
+  '''
+  Value:
+      'hello'
+  '''
+# ---
+# name: TestAlign.test_str_conversion
+  '''
+  List:
+      - apples
+      - bananas
+  '''
+# ---
+# name: TestAlign.test_str_conversion_legacy
+  '''
+  List:
+      - apples
+      - bananas
+  '''
+# ---
+# name: TestAlign.test_string_format
+  '''
+  Header:
+              hi
+  '''
+# ---
+# name: TestAlign.test_string_format_legacy
+  '''
+  Header:
+              hi
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values[False]
+  '''
+  A:
+      line1
+  line2
+  B:
+      foo
+  bar
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values[True]
+  '''
+  A:
+      line1
+      line2
+  B:
+      foo
+      bar
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values[align0]
+  '''
+  A:
+      line1
+  line2
+  B:
+      foo
+  bar
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values_legacy[False]
+  '''
+  A:
+      line1
+  line2
+  B:
+      foo
+  bar
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values_legacy[True]
+  '''
+  A:
+      line1
+      line2
+  B:
+      foo
+      bar
+  '''
+# ---
+# name: TestAlign.test_two_aligned_values_legacy[align0]
+  '''
+  A:
+      line1
+  line2
+  B:
+      foo
+  bar
+  '''
+# ---
 # name: TestAlign.test_with_multiple_lines[False]
   '''
   List:
@@ -157,6 +360,33 @@
   '''
 # ---
 # name: TestAlign.test_with_multiple_lines[align0]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines_legacy[False]
+  '''
+  List:
+      - apples
+  - bananas
+  - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines_legacy[True]
+  '''
+  List:
+      - apples
+      - bananas
+      - cherries
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_multiple_lines_legacy[align0]
   '''
   List:
       - apples
@@ -186,6 +416,27 @@
   ---
   '''
 # ---
+# name: TestAlign.test_with_single_line_legacy[False]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_single_line_legacy[True]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
+# name: TestAlign.test_with_single_line_legacy[align0]
+  '''
+  List:
+      - apples
+  ---
+  '''
+# ---
 # name: TestDedent.test_does_not_strip_explicit_newlines
   '''
   <p>Hello world!</p>
@@ -203,10 +454,20 @@
 # name: TestDedent.test_empty_format_spec
   '123'
 # ---
+# name: TestDedent.test_empty_format_spec_legacy
+  '123'
+# ---
 # name: TestDedent.test_escaped_explicit_newlines_and_tabs
   '\\n\\tfirst\\n'
 # ---
 # name: TestDedent.test_format_spec
+  '''
+  =======Receipt=======
+  - Total:       123
+  - Discount:    12.35%
+  '''
+# ---
+# name: TestDedent.test_format_spec_legacy
   '''
   =======Receipt=======
   - Total:       123
@@ -235,7 +496,22 @@
   third
   '''
 # ---
+# name: TestDedent.test_works_with_interpolation_legacy
+  '''
+  first line
+  second
+  third
+  '''
+# ---
 # name: TestDedent.test_works_with_multiple_blank_first_lines
+  '''
+  
+  first
+  second
+  third
+  '''
+# ---
+# name: TestDedent.test_works_with_multiple_blank_first_lines_legacy
   '''
   
   first
@@ -250,6 +526,13 @@
              third
   '''
 # ---
+# name: TestDedent.test_works_with_removing_same_number_of_spaces_legacy
+  '''
+  first
+       second
+             third
+  '''
+# ---
 # name: TestDedent.test_works_with_spaces_for_indentation
   '''
   first
@@ -258,6 +541,12 @@
   '''
 # ---
 # name: TestDedent.test_works_with_suppressed_newlines
+  '''
+  first             second
+  third
+  '''
+# ---
+# name: TestDedent.test_works_with_suppressed_newlines_legacy
   '''
   first             second
   third

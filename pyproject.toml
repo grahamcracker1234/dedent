@@ -3,7 +3,7 @@ name = "dedent"
 dynamic = ["version"]
 description = "What textwrap.dedent should have been"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = []
 license = "MIT"
 license-files = ["LICENSE.md"]
@@ -16,6 +16,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -26,6 +30,7 @@ classifiers = [
 keywords = [
     # Core
     "dedent",
+    "undent",
     "indent",
     "indentation",
     "textwrap",
@@ -80,6 +85,8 @@ exclude = [
     "**/.*",
     "src/dedent/_version.py",
 ]
+reportUnreachable = "hint"
+reportUnnecessaryTypeIgnoreComment = "hint"
 
 [tool.ruff]
 line-length = 100
@@ -191,5 +198,5 @@ pydocstyle.convention = "pep257"
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 addopts = ["--import-mode=importlib"]
