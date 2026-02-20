@@ -338,36 +338,46 @@ if sys.version_info >= (3, 14):
         /,
         *,
         align: bool | Missing = MISSING,
-        strip: Literal["smart", "all", "none"] | Missing = MISSING,
+        strip: Strip | Missing = MISSING,
     ) -> str:
-        r"""
-        Remove common leading whitespace from a template string.
+        r'''
+        Dedent, strip, and align a template string.
 
         This function removes the minimum common indentation from all lines in the string,
         preserving relative indentation. It supports both literal strings and t-strings (Template
         objects) with interpolations.
 
         For t-strings, interpolated values can include format spec directives:
-        - `{value:align}` - Force alignment for this value (overrides `align` parameter)
-        - `{value:noalign}` - Force no alignment for this value (overrides `align` parameter)
-        - `{value:align:06d}` - Combine align directive with other format specs
+        - `{value:align}` - Enable alignment for this value
+        - `{value:noalign}` - Disable alignment for this value
+        - `{value:align:06d}` - Combine alignment directive with other format specs
 
         Args:
-            string: The template or literal string to dedent. Can be a regular string or a t-string
-                (Template object) created with the `t` prefix.
+            string: Template or literal string to dedent.
             align: Whether to align multiline interpolated values by indenting subsequent lines to
                 match the indentation of the current line. Defaults to False. Can be overridden
                 per-value using format spec directives.
-            strip: Whether to remove leading and trailing whitespace from the result. Defaults to
-                True.
+            strip: Stripping mode to use.
+                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
+                - "all": Strips all surrounding whitespace.
+                - "none": Leaves whitespace exactly as-is after dedenting.
 
         Raises:
             TypeError: If the input is not a string or Template object.
 
         Returns:
-            The dedented string with common leading whitespace removed. If `strip` is True, leading
-            and trailing whitespace is also removed.
-        """
+            The dedented string with common leading whitespace removed, stripped according to
+            the `strip` mode.
+
+        Example::
+
+            >>> from dedent import dedent
+            >>> result = dedent(t"""
+            ...     Hello, {"World"}!
+            ... """)
+            >>> print(result)
+            Hello, World!
+        '''
         align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
@@ -394,26 +404,41 @@ else:
         string: str,
         /,
         *,
-        strip: Literal["smart", "all", "none"] | Missing = MISSING,
+        strip: Strip | Missing = MISSING,
     ) -> str:
-        r"""
-        Remove common leading whitespace from a string.
+        r'''
+        Dedent and strip a string, with optional multiline-value alignment.
 
         This function removes the minimum common indentation from all lines in the string,
-        preserving relative indentation. Use :func:`align` to mark interpolated values for automatic
+        preserving relative indentation. Use `align()` to mark interpolated values for automatic
         indentation alignment inside f-strings.
 
         Args:
-            string: The string to dedent.
-            strip: How to strip leading/trailing whitespace. `"smart"` (default) strips one leading
-                and one trailing `\n`-bounded blank segment. `"all"` strips all surrounding
-                whitespace. `"none"` leaves the string unchanged.
+            string: String to dedent.
+            strip: Stripping mode to use.
+                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
+                - "all": Strips all surrounding whitespace.
+                - "none": Leaves whitespace exactly as-is after dedenting.
+
         Raises:
             TypeError: If the input is not a string.
 
         Returns:
             The dedented string with common leading whitespace removed.
-        """
+
+        Example::
+
+            >>> from dedent import align, dedent
+            >>> items = "- a\\n- b"
+            >>> result = dedent(f"""
+            ...     List:
+            ...         {align(items)}
+            ... """)
+            >>> print(result)
+            List:
+                - a
+                - b
+        '''
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
         if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]
