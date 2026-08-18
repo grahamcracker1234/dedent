@@ -17,11 +17,13 @@ def showcase():
         uv add dedent
         pip install dedent""")
 
-    print(dedent(t"""
+    print(
+        dedent(t"""
         ╭─ dedent ──────────────────────────
           Features: {features}
           Install:  {install}
-        ╰───────────────────────────────────"""))
+        ╰───────────────────────────────────""")
+    )
 
 
 showcase()
