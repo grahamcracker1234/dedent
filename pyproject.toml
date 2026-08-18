@@ -62,10 +62,10 @@ Changelog = "https://github.com/grahamcracker1234/dedent/releases"
 [dependency-groups]
 dev = [
     "basedpyright>=1.37.1",
+    "inline-snapshot>=0.35.4",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.11",
-    "syrupy>=5.1.0",
 ]
 
 [build-system]
@@ -202,3 +202,6 @@ convention = "pep257"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = ["--import-mode=importlib"]
+
+[tool.inline-snapshot]
+format-command = "ruff format --stdin-filename {filename}"

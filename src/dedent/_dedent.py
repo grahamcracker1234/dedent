@@ -3,7 +3,6 @@ import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import reduce
 from itertools import filterfalse, tee
 from typing import TYPE_CHECKING, Final, Literal, cast, final
 from uuid import uuid4
@@ -29,7 +28,6 @@ class AlignSpec(str, Enum):
 Strip = Literal["smart", "all", "none"]
 
 _INDENTED: Final = re.compile(r"^(\s+)")
-_INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
 _SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
@@ -104,33 +102,59 @@ def _strip_string(string: str, strip: Strip) -> str:
 
 def _dedent_string(string: str) -> str:
     """
-    Remove common leading whitespace from a string.
+    Remove the longest common leading indentation from a string.
+
+    This follows the indentation rules proposed by PEP 822: indentation is an
+    exact prefix of spaces and tabs, whitespace-only lines are ignored, and a
+    final whitespace-only line constrains the indentation like a closing
+    triple-quote line.
 
     Args:
         string: The string to dedent.
+
+    Raises:
+        IndentationError: If a line's leading whitespace is inconsistent with the
+            common indentation prefix.
 
     Returns:
         The dedented string.
     """
     lines = string.split("\n")
-    max_indent = len(string)
-    min_indent: int = reduce(
-        lambda acc, line: (
-            min(acc, len(indent))
-            if (indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line))
-            else acc
-        ),
-        lines,
-        max_indent,
-    )
+    last_index = len(lines) - 1
+    indentations = [
+        line[: len(line) - len(line.lstrip(" \t"))]
+        for index, line in enumerate(lines)
+        if line.strip(" \t") or (last_index > 0 and index == last_index)
+    ]
 
-    if min_indent == max_indent:
+    if not indentations:
         return string
 
-    return "\n".join(
-        line[min_indent:] if len(line) >= min_indent and line[:min_indent].isspace() else line
-        for line in lines
-    )
+    indentation = indentations[0]
+    for candidate in indentations[1:]:
+        common_length = 0
+        for left, right in zip(indentation, candidate, strict=False):
+            if left != right:
+                break
+            common_length += 1
+        indentation = indentation[:common_length]
+        if not indentation:
+            return string
+
+    dedented_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if len(line) >= len(indentation):
+            if not line.startswith(indentation):
+                message = f"inconsistent indentation in dedented string at line {line_number}"
+                raise IndentationError(message)
+            dedented_lines.append(line[len(indentation) :])
+        elif indentation.startswith(line):
+            dedented_lines.append("")
+        else:
+            message = f"inconsistent indentation in dedented string at line {line_number}"
+            raise IndentationError(message)
+
+    return "\n".join(dedented_lines)
 
 
 @final
@@ -241,6 +265,29 @@ def process_align_markers(string: str) -> str:
     return "".join(result_parts)
 
 
+def _dedent_marked_string(string: str, strip: Strip) -> str:
+    """
+    Dedent static text without letting aligned values affect its indentation.
+
+    Returns:
+        The dedented string with deferred values restored and aligned.
+    """
+    marker_id = uuid4().hex
+    deferred_markers: list[tuple[str, str]] = []
+
+    def defer_marker(match: re.Match[str]) -> str:
+        token = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{marker_id}:{len(deferred_markers)}{_SEP}"
+        deferred_markers.append((token, match.group()))
+        return token
+
+    string = _dedent_string(_ALIGN_MARKER.sub(defer_marker, string))
+
+    for token, marker in deferred_markers:
+        string = string.replace(token, marker, 1)
+
+    return _strip_string(process_align_markers(string), strip)
+
+
 if sys.version_info >= (3, 14):
     from string.templatelib import Interpolation, Template, convert
     from typing import LiteralString, TypeVar
@@ -333,6 +380,36 @@ if sys.version_info >= (3, 14):
 
         return value
 
+    def _dedent_template(template: Template, *, align: bool, strip: Strip) -> str:
+        """
+        Dedent template literals before rendering their interpolations.
+
+        Returns:
+            The dedented and rendered template.
+        """
+        marker_id = uuid4().hex
+        interpolations: list[tuple[str, Interpolation]] = []
+        framework_parts: list[str] = []
+
+        for item in template:
+            if isinstance(item, str):
+                framework_parts.append(item)
+                continue
+
+            token = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{marker_id}:{len(interpolations)}{_SEP}"
+            interpolations.append((token, item))
+            framework_parts.append(token)
+
+        framework = _dedent_string("".join(framework_parts))
+        result = ""
+
+        for token, interpolation in interpolations:
+            preceding, framework = framework.split(token, maxsplit=1)
+            result += preceding
+            result += _handle_item(interpolation, preceding_text=result, align=align)
+
+        return _strip_string(process_align_markers(result + framework), strip)
+
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
         /,
@@ -343,9 +420,10 @@ if sys.version_info >= (3, 14):
         r'''
         Dedent, strip, and align a template string.
 
-        This function removes the minimum common indentation from all lines in the string,
-        preserving relative indentation. It supports both literal strings and t-strings (Template
-        objects) with interpolations.
+        This function removes the longest exact indentation prefix shared by all nonblank lines,
+        preserving relative indentation. A final whitespace-only line constrains the prefix like
+        the closing-quotes line in PEP 822. It supports both literal strings and t-strings
+        (`Template` objects) with interpolations.
 
         For t-strings, interpolated values can include format spec directives:
         - `{value:align}` - Enable alignment for this value
@@ -374,7 +452,7 @@ if sys.version_info >= (3, 14):
             >>> from dedent import dedent
             >>> result = dedent(t"""
             ...     Hello, {"World"}!
-            ... """)
+            ...     """)
             >>> print(result)
             Hello, World!
         '''
@@ -383,20 +461,12 @@ if sys.version_info >= (3, 14):
 
         match string:
             case str() as formatted_string:
-                pass
+                return _dedent_marked_string(formatted_string, strip)
             case Template() as template:
-                formatted_string = reduce(
-                    lambda acc, item: acc + _handle_item(item, preceding_text=acc, align=align),
-                    template,
-                    initial="",
-                )
+                return _dedent_template(template, align=align, strip=strip)
             case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
                 message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
                 raise TypeError(message)
-
-        formatted_string = process_align_markers(formatted_string)
-        formatted_string = _dedent_string(formatted_string)
-        return _strip_string(formatted_string, strip)
 
 else:
 
@@ -409,8 +479,9 @@ else:
         r'''
         Dedent and strip a string, with optional multiline-value alignment.
 
-        This function removes the minimum common indentation from all lines in the string,
-        preserving relative indentation. Use `align()` to mark interpolated values for automatic
+        This function removes the longest exact indentation prefix shared by all nonblank lines,
+        preserving relative indentation. A final whitespace-only line constrains the prefix like
+        the closing-quotes line in PEP 822. Use `align()` to mark interpolated values for automatic
         indentation alignment inside f-strings.
 
         Args:
@@ -433,7 +504,7 @@ else:
             >>> result = dedent(f"""
             ...     List:
             ...         {align(items)}
-            ... """)
+            ...     """)
             >>> print(result)
             List:
                 - a
@@ -445,6 +516,4 @@ else:
             message = f"expected str, not {type(string).__qualname__!r}"
             raise TypeError(message)  # pyright: ignore[reportUnreachable]
 
-        formatted_string = process_align_markers(string)
-        formatted_string = _dedent_string(formatted_string)
-        return _strip_string(formatted_string, strip)
+        return _dedent_marked_string(string, strip)

@@ -9,6 +9,7 @@ Dedent and strip multiline strings, and keep interpolated values aligned—witho
 ## Table of Contents
 
 - [Usage](#usage)
+- [Dedentation Rules](#dedentation-rules)
 - [Installation](#installation)
 - [Options](#options)
   - [`align`](#align)
@@ -25,7 +26,7 @@ name = "Alice"
 greeting = dedent(t"""
     Hello, {name}!
     Welcome to the party.
-""")
+    """)
 print(greeting)
 # Hello, Alice!
 # Welcome to the party.
@@ -34,18 +35,60 @@ print(greeting)
 items = dedent("""
     - apples
     - bananas
-""")
+    """)
 shopping_list = dedent(t"""
     Groceries:
         {items:align}
     ---
-""")
+    """)
 print(shopping_list)
 # Groceries:
 #     - apples
 #     - bananas
 # ---
 ```
+
+## Dedentation Rules
+
+`dedent` follows the indentation model proposed by
+[PEP 822](https://peps.python.org/pep-0822/):
+
+1. Indentation is an exact prefix of spaces and tabs; a tab never equals spaces.
+2. The longest indentation prefix shared by every nonblank line is removed.
+3. Whitespace-only lines do not determine that prefix, except for the final line. A final
+   whitespace-only line is treated like the line containing closing triple quotes.
+4. Every line must be compatible with the chosen prefix. Otherwise, `IndentationError` is raised.
+5. The closing-quotes indentation can preserve intentional indentation:
+
+```python
+result = dedent("""
+      Hello
+      World!
+    """)
+
+assert result == "  Hello\n  World!"
+```
+
+### Why `IndentationError`?
+
+Whitespace-only lines are ignored when finding the common prefix, but they must still be
+compatible with it when that prefix is removed:
+
+```python
+dedent("\n  hello\n \t\n  world\n  ")
+# IndentationError: inconsistent indentation in dedented string at line 3
+```
+
+Here the nonblank lines and closing line establish a two-space prefix. The middle line contains
+one space followed by a tab, so that exact prefix cannot be removed. Raising an error catches
+mixed or malformed indentation instead of silently changing or preserving ambiguous whitespace.
+A shorter whitespace-only line is valid when it matches the beginning of the prefix; it simply
+becomes empty. This mirrors PEP 822.
+
+With the default `strip="smart"`, the usual opening newline and closing-quotes line are removed
+from the result. Unlike native d-strings, `dedent()` runs after Python parses a string, so escape
+sequences have already been processed. For t-strings, literal text is dedented before
+interpolations are rendered.
 
 ## Installation
 
@@ -79,14 +122,14 @@ from dedent import dedent
 items = dedent("""
     - one
     - two
-""")
+    """)
 
 result = dedent(t"""
     Aligned:
         {items:align}
     Not aligned:
         {items}
-""")
+    """)
 
 print(result)
 # Aligned:
@@ -113,7 +156,7 @@ from dedent import dedent
 items = dedent("""
     - one
     - two
-""")
+    """)
 
 result = dedent(
     t"""
@@ -122,7 +165,7 @@ result = dedent(
         List 2:
             {items}
         ---
-    """,
+        """,
     align=True,
 )
 
@@ -149,7 +192,7 @@ from dedent import dedent
 
 result = dedent("""
     hello!
-""")
+    """)
 
 print(repr(result))
 # 'hello!'
@@ -169,7 +212,7 @@ result = dedent(
         hello!
 
 
-    """,
+        """,
     strip="all",
 )
 print(repr(result))
@@ -186,7 +229,7 @@ from dedent import dedent
 result = dedent(
     """
         hello!
-    """,
+        """,
     strip="none",
 )
 
@@ -205,7 +248,7 @@ from dedent import align, dedent
 message = dedent("""
     Hello,
     World!
-""")
+    """)
 print(message)
 # Hello,
 # World!
@@ -214,12 +257,12 @@ print(message)
 items = dedent("""
     - apples
     - bananas
-""")
+    """)
 shopping_list = dedent(f"""
     Groceries:
         {align(items)}
     ---
-""")
+    """)
 print(shopping_list)
 # Groceries:
 #     - apples
@@ -227,31 +270,9 @@ print(shopping_list)
 # ---
 ```
 
-Per-value control with `align()` mirrors the format spec directives available on 3.14+:
-
-```python
-from dedent import align, dedent
-
-items = dedent("""
-    - one
-    - two
-""")
-
-result = dedent(f"""
-    Aligned:
-        {align(items)}
-    Not aligned:
-        {items}
-""")
-
-print(result)
-# Aligned:
-#     - one
-#     - two
-# Not aligned:
-#     - one
-# - two
-```
+Because Python renders an f-string before calling `dedent()`, wrap every multiline interpolation
+with `align()`. Unwrapped continuation lines at column zero correctly reduce the common indentation
+prefix to zero. T-strings retain interpolation boundaries, so they do not have this limitation.
 
 > There is no equivalent of the [`align` argument](#align-argument) in Python 3.10-3.13. There is no way to automatically align multiline values when using f-strings.
 
@@ -346,13 +367,13 @@ groceries = dedent("""
     - apples
     - bananas
     - cherries
-""")
+    """)
 
 shopping_list = dedent(t"""
     Groceries:
         {groceries:align}
     ---
-""")
+    """)
 
 print(shopping_list)
 # Groceries:
