@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import filterfalse, tee
-from typing import TYPE_CHECKING, Final, Literal, cast, final
+from typing import TYPE_CHECKING, Final, Literal, TypeVar, cast, final
 from uuid import uuid4
 
 
@@ -26,11 +26,14 @@ class AlignSpec(str, Enum):
 
 
 Strip = Literal["smart", "all", "none"]
+_T = TypeVar("_T")
 
-_INDENTED: Final = re.compile(r"^(\s+)")
-_SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
+_INDENTED: Final = re.compile(r"^([ \t]+)")
+_SMART_STRIP_START: Final = re.compile(r"^[^\S\r\n]*(?:\r\n|[\r\n])?")
+_SMART_STRIP_END: Final = re.compile(r"(?:\r\n|[\r\n])?[^\S\r\n]*\Z")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
+_HOLE_MARKER_PREFIX: Final = "DEDENT_HOLE"
 _SEP: Final = "\x00"
 
 _ALIGN_MARKER: Final = re.compile(
@@ -91,9 +94,8 @@ def _strip_string(string: str, strip: Strip) -> str:
     """
     match strip:
         case "smart":
-            string = _SMART_STRIP.sub("", string, count=1)
-            # Reversing to get the rightmost match instead of leftmost
-            return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
+            string = _SMART_STRIP_START.sub("", string, count=1)
+            return _SMART_STRIP_END.sub("", string, count=1)
         case "all":
             return string.strip()
         case "none":
@@ -105,9 +107,10 @@ def _dedent_string(string: str) -> str:
     Remove the longest common leading indentation from a string.
 
     This follows the indentation rules proposed by PEP 822: indentation is an
-    exact prefix of spaces and tabs, whitespace-only lines are ignored, and a
-    final whitespace-only line constrains the indentation like a closing
-    triple-quote line.
+    exact prefix of spaces and tabs, space/tab-only lines are ignored, and a
+    final space/tab-only line constrains the indentation like a closing
+    triple-quote line. A carriage return before a newline is preserved as part
+    of the line ending rather than treated as content.
 
     Args:
         string: The string to dedent.
@@ -119,11 +122,14 @@ def _dedent_string(string: str) -> str:
     Returns:
         The dedented string.
     """
-    lines = string.split("\n")
+    lines = [
+        (line.removesuffix("\r"), "\r" if line.endswith("\r") else "")
+        for line in string.split("\n")
+    ]
     last_index = len(lines) - 1
     indentations = [
         line[: len(line) - len(line.lstrip(" \t"))]
-        for index, line in enumerate(lines)
+        for index, (line, _) in enumerate(lines)
         if line.strip(" \t") or (last_index > 0 and index == last_index)
     ]
 
@@ -142,14 +148,14 @@ def _dedent_string(string: str) -> str:
             return string
 
     dedented_lines: list[str] = []
-    for line_number, line in enumerate(lines, start=1):
+    for line_number, (line, line_ending) in enumerate(lines, start=1):
         if len(line) >= len(indentation):
             if not line.startswith(indentation):
                 message = f"inconsistent indentation in dedented string at line {line_number}"
                 raise IndentationError(message)
-            dedented_lines.append(line[len(indentation) :])
+            dedented_lines.append(line[len(indentation) :] + line_ending)
         elif indentation.startswith(line):
-            dedented_lines.append("")
+            dedented_lines.append(line_ending)
         else:
             message = f"inconsistent indentation in dedented string at line {line_number}"
             raise IndentationError(message)
@@ -208,12 +214,12 @@ def align(value: object) -> Aligned:
         items = dedent(\"\"\"
             - apples
             - bananas
-        \"\"\")
+            \"\"\")
         shopping_list = dedent(f\"\"\"
             Groceries:
                 {align(items)}
             ---
-        \"\"\")
+            \"\"\")
         print(shopping_list)
         # Groceries:
         #     - apples
@@ -231,7 +237,83 @@ def align(value: object) -> Aligned:
     return Aligned(_value=value)
 
 
-def process_align_markers(string: str) -> str:
+def _extend_current_line(current_line: str, text: str) -> str:
+    """
+    Extend the current output line with newly rendered text.
+
+    Returns:
+        The text after the final newline, or the extended current line if there is no newline.
+    """
+    _, separator, suffix = text.rpartition("\n")
+    return suffix if separator else current_line + text
+
+
+def _fill_parts(
+    literals: list[str],
+    holes: list[_T],
+    render: Callable[[_T, str], str],
+    *,
+    preceding_text: str = "",
+) -> str:
+    """
+    Fill holes between literal parts while tracking the current output line.
+
+    Raises:
+        RuntimeError: If the literal and hole counts are inconsistent.
+
+    Returns:
+        The rendered literal and hole parts.
+    """
+    if len(literals) != len(holes) + 1:
+        message = "literal and hole counts are inconsistent"
+        raise RuntimeError(message)
+
+    result_parts = [literals[0]]
+    current_line = _extend_current_line(
+        preceding_text[preceding_text.rfind("\n") + 1 :],
+        literals[0],
+    )
+
+    for hole, literal in zip(holes, literals[1:], strict=True):
+        rendered = render(hole, current_line)
+        result_parts.extend((rendered, literal))
+        current_line = _extend_current_line(current_line, rendered)
+        current_line = _extend_current_line(current_line, literal)
+
+    return "".join(result_parts)
+
+
+def _split_align_markers(string: str) -> tuple[list[str], list[str]]:
+    """
+    Split a string into literal parts and top-level aligned values.
+
+    Returns:
+        The alternating literal parts and aligned values.
+    """
+    literals: list[str] = []
+    values: list[str] = []
+    last_end = 0
+
+    for match in _ALIGN_MARKER.finditer(string):
+        literals.append(string[last_end : match.start()])
+        values.append(match.group(2))
+        last_end = match.end()
+
+    literals.append(string[last_end:])
+    return literals, values
+
+
+def _render_align_marker(value: str, preceding_text: str) -> str:
+    """
+    Render one aligned value, processing nested markers first.
+
+    Returns:
+        The marker-free value aligned to its preceding text.
+    """
+    return _align_value(process_align_markers(value), preceding_text)
+
+
+def process_align_markers(string: str, *, preceding_text: str = "") -> str:
     """
     Detect alignment markers in `string`, apply indentation alignment, and remove the markers.
 
@@ -240,29 +322,66 @@ def process_align_markers(string: str) -> str:
 
     Args:
         string: The string potentially containing alignment markers.
+        preceding_text: Text preceding `string`, used to align a marker at its start.
 
     Returns:
         The string with markers removed and aligned values indented appropriately.
     """
-    result_parts: list[str] = []
-    last_end = 0
-
-    for match in _ALIGN_MARKER.finditer(string):
-        # Text before this marker
-        result_parts.append(string[last_end : match.start()])
-        # Preceding text is what we've built so far
-        preceding_text = "".join(result_parts)
-        value = match.group(2)
-        value = process_align_markers(value)  # Handle nested markers first
-        aligned_value = _align_value(value, preceding_text)
-        result_parts.append(aligned_value)
-        last_end = match.end()
-
-    if last_end == 0:
+    literals, values = _split_align_markers(string)
+    if not values:
         return string
 
-    result_parts.append(string[last_end:])
-    return "".join(result_parts)
+    return _fill_parts(
+        literals,
+        values,
+        _render_align_marker,
+        preceding_text=preceding_text,
+    )
+
+
+def _dedent_and_fill(
+    literals: list[str],
+    holes: list[_T],
+    render: Callable[[_T, str], str],
+    strip: Strip,
+) -> str:
+    """
+    Dedent literal structure, then render its opaque holes in one linear pass.
+
+    Raises:
+        RuntimeError: If hole metadata is inconsistent with the literal framework.
+
+    Returns:
+        The dedented, rendered, and stripped string.
+    """
+    if len(literals) != len(holes) + 1:
+        message = "literal and hole counts are inconsistent"
+        raise RuntimeError(message)
+
+    if not holes:
+        return _strip_string(_dedent_string(literals[0]), strip)
+
+    marker_id = uuid4().hex
+    framework_parts = [literals[0]]
+
+    for index, literal in enumerate(literals[1:]):
+        token = f"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:{index}{_SEP}"
+        framework_parts.extend((token, literal))
+
+    framework = _dedent_string("".join(framework_parts))
+    hole_marker = re.compile(rf"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:(\d+){_SEP}")
+    dedented_literals: list[str] = []
+    last_end = 0
+
+    for match in hole_marker.finditer(framework):
+        if int(match.group(1)) != len(dedented_literals):
+            message = "dedent hole markers are out of order"
+            raise RuntimeError(message)
+        dedented_literals.append(framework[last_end : match.start()])
+        last_end = match.end()
+
+    dedented_literals.append(framework[last_end:])
+    return _strip_string(_fill_parts(dedented_literals, holes, render), strip)
 
 
 def _dedent_marked_string(string: str, strip: Strip) -> str:
@@ -272,29 +391,17 @@ def _dedent_marked_string(string: str, strip: Strip) -> str:
     Returns:
         The dedented string with deferred values restored and aligned.
     """
-    marker_id = uuid4().hex
-    deferred_markers: list[tuple[str, str]] = []
-
-    def defer_marker(match: re.Match[str]) -> str:
-        token = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{marker_id}:{len(deferred_markers)}{_SEP}"
-        deferred_markers.append((token, match.group()))
-        return token
-
-    string = _dedent_string(_ALIGN_MARKER.sub(defer_marker, string))
-
-    for token, marker in deferred_markers:
-        string = string.replace(token, marker, 1)
-
-    return _strip_string(process_align_markers(string), strip)
+    literals, values = _split_align_markers(string)
+    return _dedent_and_fill(literals, values, _render_align_marker, strip)
 
 
 if sys.version_info >= (3, 14):
     from string.templatelib import Interpolation, Template, convert
-    from typing import LiteralString, TypeVar
+    from typing import LiteralString
 
-    T = TypeVar(name="T")
-
-    def _partition(it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
+    def _partition(
+        it: Iterable[_T], pred: Callable[[_T], bool]
+    ) -> tuple[filter[_T], filterfalse[_T]]:
         """
         Partition an iterable into two filters based on a predicate.
 
@@ -342,19 +449,16 @@ if sys.version_info >= (3, 14):
         return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
 
     def _handle_item(
-        item: str | Interpolation,
+        item: Interpolation,
         *,
         preceding_text: str,
         align: bool,
     ) -> str:
         """
-        Process a single template item (string or interpolation).
-
-        For string items, returns them as-is. For interpolations, converts the value, applies format
-        specifications (extracting dedent directives), and optionally aligns multiline output.
+        Convert and format one interpolation, then apply requested alignment.
 
         Args:
-            item: Either a string literal or an Interpolation object.
+            item: The interpolation to render.
             preceding_text: The text that precedes this item, used for alignment.
             align: Whether to align multiline values by default (can be overridden by format spec
                 directives).
@@ -362,9 +466,6 @@ if sys.version_info >= (3, 14):
         Returns:
             The processed string representation of the item.
         """
-        if isinstance(item, str):
-            return item
-
         value = convert(cast("object", item.value), item.conversion)
         align_override: bool | None = None
 
@@ -375,6 +476,8 @@ if sys.version_info >= (3, 14):
 
         value = str(value)
         should_align = align_override if align_override is not None else align
+        if _ALIGN_MARKER.search(value):
+            return process_align_markers(value, preceding_text=preceding_text)
         if should_align:
             value = _align_value(value, preceding_text)
 
@@ -387,28 +490,21 @@ if sys.version_info >= (3, 14):
         Returns:
             The dedented and rendered template.
         """
-        marker_id = uuid4().hex
-        interpolations: list[tuple[str, Interpolation]] = []
-        framework_parts: list[str] = []
+        interpolations: list[Interpolation] = []
+        literals = [""]
 
         for item in template:
             if isinstance(item, str):
-                framework_parts.append(item)
+                literals[-1] += item
                 continue
 
-            token = f"{_SEP}{_ALIGN_MARKER_PREFIX}:{marker_id}:{len(interpolations)}{_SEP}"
-            interpolations.append((token, item))
-            framework_parts.append(token)
+            interpolations.append(item)
+            literals.append("")
 
-        framework = _dedent_string("".join(framework_parts))
-        result = ""
+        def render_interpolation(item: Interpolation, preceding_text: str) -> str:
+            return _handle_item(item, preceding_text=preceding_text, align=align)
 
-        for token, interpolation in interpolations:
-            preceding, framework = framework.split(token, maxsplit=1)
-            result += preceding
-            result += _handle_item(interpolation, preceding_text=result, align=align)
-
-        return _strip_string(process_align_markers(result + framework), strip)
+        return _dedent_and_fill(literals, interpolations, render_interpolation, strip)
 
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
@@ -441,6 +537,7 @@ if sys.version_info >= (3, 14):
                 - "none": Leaves whitespace exactly as-is after dedenting.
 
         Raises:
+            IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string or Template object.
 
         Returns:
@@ -455,7 +552,7 @@ if sys.version_info >= (3, 14):
             ...     """)
             >>> print(result)
             Hello, World!
-        '''
+        '''  # noqa: DOC502
         align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
@@ -492,6 +589,7 @@ else:
                 - "none": Leaves whitespace exactly as-is after dedenting.
 
         Raises:
+            IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string.
 
         Returns:
@@ -509,7 +607,7 @@ else:
             List:
                 - a
                 - b
-        '''
+        '''  # noqa: DOC502
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
         if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]

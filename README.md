@@ -55,8 +55,8 @@ print(shopping_list)
 
 1. Indentation is an exact prefix of spaces and tabs; a tab never equals spaces.
 2. The longest indentation prefix shared by every nonblank line is removed.
-3. Whitespace-only lines do not determine that prefix, except for the final line. A final
-   whitespace-only line is treated like the line containing closing triple quotes.
+3. Lines containing only spaces and tabs do not determine that prefix, except for the final line.
+   A final space/tab-only line is treated like the line containing closing triple quotes.
 4. Every line must be compatible with the chosen prefix. Otherwise, `IndentationError` is raised.
 5. The closing-quotes indentation can preserve intentional indentation:
 
@@ -69,10 +69,18 @@ result = dedent("""
 assert result == "  Hello\n  World!"
 ```
 
+Keep the closing quotes at the indentation you want removed. A trailing `\n` creates an empty
+closing line at column zero, so it preserves the content indentation:
+
+```python
+assert dedent("\n    Hello\n") == "    Hello"
+assert dedent("\n    Hello\n    ") == "Hello"
+```
+
 ### Why `IndentationError`?
 
-Whitespace-only lines are ignored when finding the common prefix, but they must still be
-compatible with it when that prefix is removed:
+Space/tab-only lines are ignored when finding the common prefix, but they must still be compatible
+with it when that prefix is removed:
 
 ```python
 dedent("\n  hello\n \t\n  world\n  ")
@@ -82,13 +90,17 @@ dedent("\n  hello\n \t\n  world\n  ")
 Here the nonblank lines and closing line establish a two-space prefix. The middle line contains
 one space followed by a tab, so that exact prefix cannot be removed. Raising an error catches
 mixed or malformed indentation instead of silently changing or preserving ambiguous whitespace.
-A shorter whitespace-only line is valid when it matches the beginning of the prefix; it simply
+A shorter space/tab-only line is valid when it matches the beginning of the prefix; it simply
 becomes empty. This mirrors PEP 822.
 
 With the default `strip="smart"`, the usual opening newline and closing-quotes line are removed
 from the result. Unlike native d-strings, `dedent()` runs after Python parses a string, so escape
 sequences have already been processed. For t-strings, literal text is dedented before
 interpolations are rendered.
+
+For runtime strings that use CRLF, `dedent` preserves each `\r\n` pair and excludes the terminal
+`\r` from indentation checks. Other whitespace characters, such as form feed and non-breaking
+space, remain content.
 
 ## Installation
 

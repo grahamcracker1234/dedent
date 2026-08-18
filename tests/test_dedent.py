@@ -54,6 +54,17 @@ first
         assert dedent("\n    first\n    ") == snapshot("first")
 
     @staticmethod
+    def test_column_zero_closer_preserves_indentation() -> None:
+        assert dedent("\n    first\n    second\n") == snapshot("""\
+    first
+    second\
+""")
+        assert dedent("\n    first\n    second") == snapshot("""\
+first
+second\
+""")
+
+    @staticmethod
     def test_ignores_compatible_whitespace_only_lines() -> None:
         assert dedent("\n  first\n \n  second\n  ") == snapshot("""\
 first
@@ -62,9 +73,35 @@ second\
 """)
 
     @staticmethod
-    def test_rejects_incompatible_whitespace_only_lines() -> None:
+    def test_preserves_crlf_when_ignoring_blank_lines() -> None:
+        assert dedent("    first\r\n\r\n    second\r\n    ", strip="none") == snapshot(
+            "first\r\n\r\nsecond\r\n"
+        )
+
+    @staticmethod
+    def test_smart_strip_removes_complete_crlf_boundary() -> None:
+        assert dedent("    first\r\n    ") == snapshot("first")
+
+    @pytest.mark.parametrize("whitespace", ["\f", "\v", "\N{NO-BREAK SPACE}"])
+    @staticmethod
+    def test_non_indentation_whitespace_is_content(whitespace: str) -> None:
+        string = f"  first\n{whitespace}\n  second\n  "
+        assert (
+            dedent(string, strip="none")  # pyright: ignore[reportArgumentType]: runtime contract
+            == string
+        )
+
+    @pytest.mark.parametrize(
+        "string",
+        [
+            "\n  first\n \t\n  second\n  ",
+            "\r\n  first\r\n \t\r\n  second\r\n  ",
+        ],
+    )
+    @staticmethod
+    def test_rejects_incompatible_whitespace_only_lines(string: str) -> None:
         with pytest.raises(IndentationError, match="line 3"):
-            _ = dedent("\n  first\n \t\n  second\n  ")
+            _ = dedent_f(string)
 
     @staticmethod
     def test_removes_common_indent() -> None:
@@ -147,13 +184,6 @@ class TestStrip:
         [
             (
                 "smart",
-                snapshot("""\
-foo
-bar\
-"""),
-            ),
-            (
-                "all",
                 snapshot("""\
 foo
 bar\
@@ -257,7 +287,7 @@ second\
     @required_py314
     @staticmethod
     def test_tstring_format_spec() -> None:
-        assert dedent(
+        template_result = dedent(
             t(
                 """
                 {header:=^21}
@@ -266,15 +296,24 @@ second\
                 header="Receipt",
                 total=123,
             )
-        ) == snapshot("""\
+        )
+        fstring_result = dedent_f(f"""
+                {"Receipt":=^21}
+                - Total: {123: 9d}
+                """)
+        assert (
+            template_result
+            == fstring_result
+            == snapshot("""\
 =======Receipt=======
 - Total:       123\
 """)
+        )
 
     @required_py314
     @staticmethod
     def test_tstring_empty_format_spec() -> None:
-        assert dedent(t("{123:}")) == snapshot("123")
+        assert dedent(t("{123:}")) == dedent_f(f"{123:}") == snapshot("123")
 
 
 class TestAlign:
@@ -291,15 +330,18 @@ class TestAlign:
 
     @staticmethod
     def test_align_wrapper() -> None:
+        items = dedent("""
+            - apples
+            - bananas
+            """)
         assert dedent_f(f"""
-                List:
-                    {align(ITEMS)}
+                Groceries:
+                    {align(items)}
                 ---
                 """) == snapshot("""\
-List:
+Groceries:
     - apples
     - bananas
-    - cherries
 ---\
 """)
 
@@ -322,6 +364,20 @@ B:
 """)
 
     @staticmethod
+    def test_two_values_on_the_same_line() -> None:
+        a = "a1\na2"
+        b = "b1\nb2"
+        assert dedent_f(f"""
+                Row:
+                    {align(a)} + {align(b)}
+                """) == snapshot("""\
+Row:
+    a1
+    a2 + b1
+    b2\
+""")
+
+    @staticmethod
     def test_nested_wrappers() -> None:
         inner = "line1\nline2"
         outer = f"outer {align(inner)}"
@@ -332,6 +388,15 @@ line2\
 """)
         assert "\x00" not in result
         assert "DEDENT_ALIGN" not in result
+
+    @staticmethod
+    def test_alignment_indent_uses_only_spaces_and_tabs() -> None:
+        value = "line1\nline2"
+        string = f"\N{NO-BREAK SPACE}{align(value)}"
+        assert (
+            dedent(string, strip="none")  # pyright: ignore[reportArgumentType]: runtime contract
+            == snapshot("\N{NO-BREAK SPACE}line1\nline2")
+        )
 
     @staticmethod
     def test_conversions() -> None:
@@ -430,9 +495,57 @@ List:
 
     @required_py314
     @staticmethod
+    def test_align_wrapper_is_not_applied_twice() -> None:
+        assert dedent(
+            t(
+                """
+                    List:
+                        {items}
+                    ---
+                    """,
+                items=align(ITEMS),
+            ),
+            align=True,  # pyright: ignore[reportCallIssue]: test is skipped before Python 3.14
+        ) == snapshot("""\
+List:
+    - apples
+    - bananas
+    - cherries
+---\
+""")
+
+    @required_py314
+    @staticmethod
     def test_align_directive_with_format_spec() -> None:
         assert dedent(t("{123:06d:align}")) == snapshot("000123")
         assert dedent(t("{123:align:06d}")) == snapshot("000123")
+
+    @required_py314
+    @staticmethod
+    def test_alignment_after_multiline_formatting() -> None:
+        size = len(ITEMS) + 2
+        assert dedent(
+            t(
+                """
+                List:
+                    {items:\n^{size}:align}
+                ---
+                """,
+                items=ITEMS,
+                size=size,
+            )
+        ) == snapshot("List:\n    \n    - apples\n    - bananas\n    - cherries\n    \n---")
+        assert dedent(
+            t(
+                """
+                List:
+                    {items:\n^{size}:noalign}
+                ---
+                """,
+                items=ITEMS,
+                size=size,
+            )
+        ) == snapshot("List:\n    \n- apples\n- bananas\n- cherries\n\n---")
 
     @required_py314
     @staticmethod
