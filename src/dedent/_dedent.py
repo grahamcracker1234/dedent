@@ -8,7 +8,6 @@ from uuid import uuid4
 _T = TypeVar("_T")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
-_HOLE_MARKER_PREFIX: Final = "DEDENT_HOLE"
 _NOALIGN_SPEC: Final = "noalign"
 _SEP: Final = "\x00"
 
@@ -57,9 +56,9 @@ def _omit_opening_newline(string: str) -> str:
     return string
 
 
-def _dedent_string(string: str) -> str:
+def _common_indentation(string: str) -> str | None:
     """
-    Remove the longest common leading indentation from a string.
+    Find and validate the longest common leading indentation in a string.
 
     This follows the indentation rules proposed by PEP 822: indentation is an
     exact prefix of spaces and tabs, space/tab-only lines are ignored, and a
@@ -68,28 +67,25 @@ def _dedent_string(string: str) -> str:
     of the line ending rather than treated as content.
 
     Args:
-        string: The string to dedent.
+        string: The literal framework to inspect.
 
     Raises:
         IndentationError: If a line's leading whitespace is inconsistent with the
             common indentation prefix.
 
     Returns:
-        The dedented string.
+        The common indentation, or `None` when no line determines it.
     """
-    lines = [
-        (line.removesuffix("\r"), "\r" if line.endswith("\r") else "")
-        for line in string.split("\n")
-    ]
+    lines = [line.removesuffix("\r") for line in string.split("\n")]
     last_index = len(lines) - 1
     indentations = [
         line[: len(line) - len(line.lstrip(" \t"))]
-        for index, (line, _) in enumerate(lines)
+        for index, line in enumerate(lines)
         if line.strip(" \t") or (last_index > 0 and index == last_index)
     ]
 
     if not indentations:
-        return string
+        return None
 
     indentation = indentations[0]
     for candidate in indentations[1:]:
@@ -100,39 +96,80 @@ def _dedent_string(string: str) -> str:
             common_length += 1
         indentation = indentation[:common_length]
         if not indentation:
-            return string
+            break
 
-    dedented_lines: list[str] = []
-    for line_number, (line, line_ending) in enumerate(lines, start=1):
+    for line_number, line in enumerate(lines, start=1):
         if len(line) >= len(indentation):
-            if not line.startswith(indentation):
-                message = f"inconsistent indentation in dedented string at line {line_number}"
-                raise IndentationError(message)
-            dedented_lines.append(line[len(indentation) :] + line_ending)
-        elif indentation.startswith(line):
-            dedented_lines.append(line_ending)
+            is_compatible = line.startswith(indentation)
         else:
+            is_compatible = indentation.startswith(line)
+        if not is_compatible:
             message = f"inconsistent indentation in dedented string at line {line_number}"
             raise IndentationError(message)
 
-    return "\n".join(dedented_lines)
+    return indentation
 
 
-def _dedent_literal_structure(string: str) -> str:
+def _remove_indentation(literals: list[str], indentation: str) -> list[str]:
     """
-    Dedent a literal framework and omit its opening line.
+    Remove indentation from literal parts without crossing their opaque holes.
 
     Returns:
-        The dedented string. An initial line containing only spaces and tabs is
-        omitted when it ends with a line ending.
+        The dedented literal parts.
     """
-    opening_line = _OPENING_LINE.match(string)
-    if opening_line is None:
-        return _dedent_string(string)
+    if not indentation:
+        return literals
 
-    line_ending = opening_line.group(1)
-    normalized = line_ending + string[opening_line.end() :]
-    return _omit_opening_newline(_dedent_string(normalized))
+    dedented_literals: list[str] = []
+    at_line_start = True
+    removed = 0
+    last_index = len(literals) - 1
+
+    for literal_index, literal in enumerate(literals):
+        dedented: list[str] = []
+        for character in literal:
+            if character == "\n":
+                dedented.append(character)
+                at_line_start = True
+                removed = 0
+            elif at_line_start and removed < len(indentation) and character in " \t":
+                removed += 1
+            else:
+                dedented.append(character)
+                at_line_start = False
+
+        dedented_literals.append("".join(dedented))
+        if literal_index < last_index:
+            at_line_start = False
+
+    return dedented_literals
+
+
+def _dedent_literal_parts(literals: list[str]) -> list[str]:
+    """
+    Dedent literal parts while treating the holes between them as opaque content.
+
+    Returns:
+        The dedented parts, with a spaces-and-tabs-only opening line omitted.
+    """
+    normalized_literals = literals.copy()
+    opening_line = _OPENING_LINE.match(normalized_literals[0])
+    if opening_line is not None:
+        line_ending = opening_line.group(1)
+        normalized_literals[0] = line_ending + normalized_literals[0][opening_line.end() :]
+
+    framework = _SEP.join(normalized_literals)
+    indentation = _common_indentation(framework)
+    dedented_literals = (
+        normalized_literals
+        if indentation is None
+        else _remove_indentation(normalized_literals, indentation)
+    )
+
+    if opening_line is not None:
+        dedented_literals[0] = _omit_opening_newline(dedented_literals[0])
+
+    return dedented_literals
 
 
 @final
@@ -329,29 +366,7 @@ def _dedent_and_fill(
         message = "literal and hole counts are inconsistent"
         raise RuntimeError(message)
 
-    if not holes:
-        return _dedent_literal_structure(literals[0])
-
-    marker_id = uuid4().hex
-    framework_parts = [literals[0]]
-
-    for index, literal in enumerate(literals[1:]):
-        token = f"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:{index}{_SEP}"
-        framework_parts.extend((token, literal))
-
-    framework = _dedent_literal_structure("".join(framework_parts))
-    hole_marker = re.compile(rf"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:(\d+){_SEP}")
-    dedented_literals: list[str] = []
-    last_end = 0
-
-    for match in hole_marker.finditer(framework):
-        if int(match.group(1)) != len(dedented_literals):
-            message = "dedent hole markers are out of order"
-            raise RuntimeError(message)
-        dedented_literals.append(framework[last_end : match.start()])
-        last_end = match.end()
-
-    dedented_literals.append(framework[last_end:])
+    dedented_literals = _dedent_literal_parts(literals)
     return _fill_parts(dedented_literals, holes, render)
 
 
