@@ -30,6 +30,29 @@ second
 
 
 @required_py314
+def test_tstring_conversions() -> None:
+    assert dedent(t("{value!s}", value="hello")) == snapshot("hello")
+    assert dedent(t("{value!r}", value="hello")) == snapshot("'hello'")
+
+
+@required_py314
+def test_two_tstring_values_on_the_same_line() -> None:
+    assert dedent(
+        t(
+            """
+            {a} + {b}
+            """,
+            a="a1\na2",
+            b="b1\nb2",
+        )
+    ) == snapshot("""\
+a1
+a2 + b1
+     b2
+""")
+
+
+@required_py314
 def test_tstring_omits_whitespace_before_the_opening_newline() -> None:
     assert dedent(t(" \n {value}\n ", value="hello")) == snapshot("hello\n")
 
