@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import filterfalse, tee
-from typing import TYPE_CHECKING, Final, Literal, TypeVar, final
+from typing import TYPE_CHECKING, Final, TypeVar, final
 from uuid import uuid4
 
 
@@ -14,7 +14,6 @@ class Missing:
 
 MISSING: Final = Missing()
 
-DEFAULT_STRIP: Final = "smart"
 DEFAULT_ALIGN: Final = False
 
 
@@ -25,11 +24,7 @@ class AlignSpec(str, Enum):
     NOALIGN = "noalign"
 
 
-Strip = Literal["smart", "all", "none"]
 _T = TypeVar("_T")
-
-_SMART_STRIP_START: Final = re.compile(r"^[^\S\r\n]*(?:\r\n|[\r\n])?")
-_SMART_STRIP_END: Final = re.compile(r"(?:\r\n|[\r\n])?[^\S\r\n]*\Z")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
 _HOLE_MARKER_PREFIX: Final = "DEDENT_HOLE"
@@ -62,25 +57,21 @@ def _align_value(value: str, preceding_text: str) -> str:
     return value
 
 
-def _strip_string(string: str, strip: Strip) -> str:
+def _omit_opening_newline(string: str) -> str:
     """
-    Strip leading and trailing whitespace from a string.
+    Omit the newline immediately following opening triple quotes.
 
     Args:
-        string: The string to strip.
-        strip: The strip mode to use.
+        string: The dedented string.
 
     Returns:
-        The stripped string.
+        The string with one initial line ending removed, if present.
     """
-    match strip:
-        case "smart":
-            string = _SMART_STRIP_START.sub("", string, count=1)
-            return _SMART_STRIP_END.sub("", string, count=1)
-        case "all":
-            return string.strip()
-        case "none":
-            return string
+    if string.startswith("\r\n"):
+        return string[2:]
+    if string.startswith(("\r", "\n")):
+        return string[1:]
+    return string
 
 
 def _dedent_string(string: str) -> str:
@@ -193,8 +184,7 @@ def align(value: object) -> Aligned:
 
         items = dedent(\"\"\"
             - apples
-            - bananas
-            \"\"\")
+            - bananas\"\"\")
         shopping_list = dedent(f\"\"\"
             Groceries:
                 {align(items)}
@@ -323,7 +313,6 @@ def _dedent_and_fill(
     literals: list[str],
     holes: list[_T],
     render: Callable[[_T, str], str],
-    strip: Strip,
 ) -> str:
     """
     Dedent literal structure, then render its opaque holes in one linear pass.
@@ -332,14 +321,14 @@ def _dedent_and_fill(
         RuntimeError: If hole metadata is inconsistent with the literal framework.
 
     Returns:
-        The dedented, rendered, and stripped string.
+        The dedented and rendered string.
     """
     if len(literals) != len(holes) + 1:
         message = "literal and hole counts are inconsistent"
         raise RuntimeError(message)
 
     if not holes:
-        return _strip_string(_dedent_string(literals[0]), strip)
+        return _omit_opening_newline(_dedent_string(literals[0]))
 
     marker_id = uuid4().hex
     framework_parts = [literals[0]]
@@ -348,7 +337,7 @@ def _dedent_and_fill(
         token = f"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:{index}{_SEP}"
         framework_parts.extend((token, literal))
 
-    framework = _dedent_string("".join(framework_parts))
+    framework = _omit_opening_newline(_dedent_string("".join(framework_parts)))
     hole_marker = re.compile(rf"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:(\d+){_SEP}")
     dedented_literals: list[str] = []
     last_end = 0
@@ -361,10 +350,10 @@ def _dedent_and_fill(
         last_end = match.end()
 
     dedented_literals.append(framework[last_end:])
-    return _strip_string(_fill_parts(dedented_literals, holes, render), strip)
+    return _fill_parts(dedented_literals, holes, render)
 
 
-def _dedent_marked_string(string: str, strip: Strip) -> str:
+def _dedent_marked_string(string: str) -> str:
     """
     Dedent static text without letting aligned values affect its indentation.
 
@@ -372,7 +361,7 @@ def _dedent_marked_string(string: str, strip: Strip) -> str:
         The dedented string with deferred values restored and aligned.
     """
     literals, values = _split_align_markers(string)
-    return _dedent_and_fill(literals, values, _render_align_marker, strip)
+    return _dedent_and_fill(literals, values, _render_align_marker)
 
 
 if sys.version_info >= (3, 14):
@@ -463,7 +452,7 @@ if sys.version_info >= (3, 14):
 
         return value
 
-    def _dedent_template(template: Template, *, align: bool, strip: Strip) -> str:
+    def _dedent_template(template: Template, *, align: bool) -> str:
         """
         Dedent template literals before rendering their interpolations.
 
@@ -484,17 +473,16 @@ if sys.version_info >= (3, 14):
         def render_interpolation(item: Interpolation[object], preceding_text: str) -> str:
             return _handle_item(item, preceding_text=preceding_text, align=align)
 
-        return _dedent_and_fill(literals, interpolations, render_interpolation, strip)
+        return _dedent_and_fill(literals, interpolations, render_interpolation)
 
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
         /,
         *,
         align: bool | Missing = MISSING,
-        strip: Strip | Missing = MISSING,
     ) -> str:
         r'''
-        Dedent, strip, and align a template string.
+        Dedent and align a template string.
 
         This function removes the longest exact indentation prefix shared by all nonblank lines,
         preserving relative indentation. A final whitespace-only line constrains the prefix like
@@ -511,18 +499,13 @@ if sys.version_info >= (3, 14):
             align: Whether multiline interpolated values start each line in the column where the
                 interpolation begins. Defaults to False. Can be overridden per value using format
                 spec directives.
-            strip: Stripping mode to use.
-                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
-                - "all": Strips all surrounding whitespace.
-                - "none": Leaves whitespace exactly as-is after dedenting.
-
         Raises:
             IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string or Template object.
 
         Returns:
-            The dedented string with common leading whitespace removed, stripped according to
-            the `strip` mode.
+            The string with common leading whitespace and its opening newline removed. All other
+            whitespace is preserved.
 
         Example::
 
@@ -534,13 +517,12 @@ if sys.version_info >= (3, 14):
             Hello, World!
         '''  # ruff: ignore[docstring-extraneous-exception]
         align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
-        strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
         match string:
             case str() as formatted_string:
-                return _dedent_marked_string(formatted_string, strip)
+                return _dedent_marked_string(formatted_string)
             case Template() as template:
-                return _dedent_template(template, align=align, strip=strip)
+                return _dedent_template(template, align=align)
             case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
                 message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
                 raise TypeError(message)
@@ -550,11 +532,9 @@ else:
     def dedent(  # pyright: ignore[reportUnreachable]
         string: str,
         /,
-        *,
-        strip: Strip | Missing = MISSING,
     ) -> str:
         r'''
-        Dedent and strip a string, with optional multiline-value alignment.
+        Dedent a string and align marked multiline values.
 
         This function removes the longest exact indentation prefix shared by all nonblank lines,
         preserving relative indentation. A final whitespace-only line constrains the prefix like
@@ -563,17 +543,13 @@ else:
 
         Args:
             string: String to dedent.
-            strip: Stripping mode to use.
-                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
-                - "all": Strips all surrounding whitespace.
-                - "none": Leaves whitespace exactly as-is after dedenting.
-
         Raises:
             IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string.
 
         Returns:
-            The dedented string with common leading whitespace removed.
+            The string with common leading whitespace and its opening newline removed. All other
+            whitespace is preserved.
 
         Example::
 
@@ -588,10 +564,8 @@ else:
                 - a
                 - b
         '''  # ruff: ignore[docstring-extraneous-exception]
-        strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
-
         if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]
             message = f"expected str, not {type(string).__qualname__!r}"
             raise TypeError(message)  # pyright: ignore[reportUnreachable]
 
-        return _dedent_marked_string(string, strip)
+        return _dedent_marked_string(string)

@@ -1,14 +1,12 @@
 """Tests for `dedent`."""
 
 import sys
-from typing import Literal, cast
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
 
 from dedent import align, dedent
-
-StripMode = Literal["smart", "all", "none"]
 
 required_py314 = pytest.mark.skipif(sys.version_info < (3, 14), reason="requires Python 3.14+")
 
@@ -39,25 +37,25 @@ def dedent_f(string: str) -> str:
 class TestDedent:
     @staticmethod
     def test_uses_exact_common_indentation_prefix() -> None:
-        assert dedent(" \tfirst\n \t\tsecond", strip="none") == snapshot("""\
+        assert dedent(" \tfirst\n \t\tsecond") == snapshot("""\
 first
 	second\
 """)
-        assert dedent(" first\n\tsecond", strip="none") == snapshot("""\
+        assert dedent(" first\n\tsecond") == snapshot("""\
  first
 	second\
 """)
 
     @staticmethod
     def test_closing_line_constrains_indentation() -> None:
-        assert dedent("\n    first\n  ") == snapshot("  first")
-        assert dedent("\n    first\n    ") == snapshot("first")
+        assert dedent("\n    first\n  ") == snapshot("  first\n")
+        assert dedent("\n    first\n    ") == snapshot("first\n")
 
     @staticmethod
     def test_column_zero_closer_preserves_indentation() -> None:
         assert dedent("\n    first\n    second\n") == snapshot("""\
     first
-    second\
+    second
 """)
         assert dedent("\n    first\n    second") == snapshot("""\
 first
@@ -69,27 +67,22 @@ second\
         assert dedent("\n  first\n \n  second\n  ") == snapshot("""\
 first
 
-second\
+second
 """)
 
     @staticmethod
     def test_preserves_crlf_when_ignoring_blank_lines() -> None:
-        assert dedent("    first\r\n\r\n    second\r\n    ", strip="none") == snapshot(
-            "first\r\n\r\nsecond\r\n"
-        )
+        assert dedent("    first\r\n\r\n    second\r\n    ") == snapshot("first\r\n\r\nsecond\r\n")
 
     @staticmethod
-    def test_smart_strip_removes_complete_crlf_boundary() -> None:
-        assert dedent("    first\r\n    ") == snapshot("first")
+    def test_preserves_complete_crlf_boundary() -> None:
+        assert dedent("\r\n    first\r\n    ") == snapshot("first\r\n")
 
     @pytest.mark.parametrize("whitespace", ["\f", "\v", "\N{NO-BREAK SPACE}"])
     @staticmethod
     def test_non_indentation_whitespace_is_content(whitespace: str) -> None:
         string = f"  first\n{whitespace}\n  second\n  "
-        assert (
-            dedent(string, strip="none")  # pyright: ignore[reportArgumentType]: runtime contract
-            == string
-        )
+        assert dedent(string) == string  # pyright: ignore[reportArgumentType]: runtime contract
 
     @pytest.mark.parametrize(
         "string",
@@ -112,7 +105,7 @@ second\
                 """) == snapshot("""\
 first
     second
-        third\
+        third
 """)
 
     @staticmethod
@@ -124,7 +117,7 @@ first
                """) == snapshot("""\
 first
      second
-           third\
+           third
 """)
 
     @staticmethod
@@ -132,7 +125,7 @@ first
         assert dedent("\n\t\tfirst\n\t\t\tsecond\n\t\t\t\tthird\n\t\t") == snapshot("""\
 first
 	second
-		third\
+		third
 """)
 
     @staticmethod
@@ -151,7 +144,10 @@ first
     def test_explicit_newline_is_kept() -> None:
         assert dedent("""
                 <p>Hello world!</p>\n
-                """) == snapshot("<p>Hello world!</p>\n")
+                """) == snapshot("""\
+<p>Hello world!</p>
+
+""")
 
     @staticmethod
     def test_source_line_continuation() -> None:
@@ -161,7 +157,7 @@ first
                 third
                 """) == snapshot("""\
 first                 second
-third\
+third
 """)
 
     @staticmethod
@@ -174,37 +170,19 @@ third\
             _ = dedent(123)  # pyright: ignore[reportArgumentType]
 
 
-class TestStrip:
+class TestBoundaries:
     @staticmethod
-    def test_default_is_smart() -> None:
-        assert dedent(TYPICAL) == dedent(TYPICAL, strip="smart")
-
-    @pytest.mark.parametrize(
-        ("strip", "expected"),
-        [
-            (
-                "smart",
-                snapshot("""\
-foo
-bar\
-"""),
-            ),
-            (
-                "none",
-                snapshot("""\
-
-foo
-bar
-"""),
-            ),
-        ],
-    )
-    @staticmethod
-    def test_typical(strip: StripMode, expected: str) -> None:
-        assert dedent(TYPICAL, strip=strip) == expected
+    def test_closing_quotes_on_own_line_preserve_trailing_newline() -> None:
+        assert dedent(TYPICAL) == snapshot("foo\nbar\n")
 
     @staticmethod
-    def test_smart_strips_one_blank_segment() -> None:
+    def test_closing_quotes_after_content_omit_trailing_newline() -> None:
+        assert dedent("""
+                foo
+                bar""") == snapshot("foo\nbar")
+
+    @staticmethod
+    def test_omits_only_opening_newline() -> None:
         assert dedent("""
 
 
@@ -214,11 +192,11 @@ bar
 
 
 foo
-bar\
+bar
 """)
 
     @staticmethod
-    def test_smart_keeps_trailing_spaces_on_content() -> None:
+    def test_keeps_trailing_spaces_on_content() -> None:
         assert dedent(
             """
                     foo---
@@ -226,24 +204,11 @@ bar\
                     """.replace("-", " ")
         ) == snapshot("""\
 foo   \n\
-bar   \
+bar   \n\
 """)
 
     @staticmethod
-    def test_all_strips_surrounding_whitespace() -> None:
-        padded = """---
-
-            foo
-            bar
-
-            ---""".replace("-", " ")
-        assert dedent(padded, strip="all") == snapshot("""\
-foo
-bar\
-""")
-
-    @staticmethod
-    def test_smart_keeps_whitespace_only_lines() -> None:
+    def test_keeps_whitespace_only_lines() -> None:
         assert dedent(
             """
                     ---
@@ -255,7 +220,7 @@ bar\
    \n\
 foo
 bar
-   \
+   \n\
 """)
 
 
@@ -268,7 +233,7 @@ class TestInterpolation:
                 second
                 """) == snapshot("""\
 first line
-second\
+second
 """)
 
     @required_py314
@@ -281,7 +246,7 @@ second\
                 """)
         ) == snapshot("""\
 first line
-second\
+second
 """)
 
     @required_py314
@@ -306,7 +271,7 @@ second\
             == fstring_result
             == snapshot("""\
 =======Receipt=======
-- Total:       123\
+- Total:       123
 """)
         )
 
@@ -325,15 +290,15 @@ class TestAlign:
         - apples
 - bananas
 - cherries
-    ---\
+    ---
+    \
 """)
 
     @staticmethod
     def test_align_wrapper() -> None:
         items = dedent("""
             - apples
-            - bananas
-            """)
+            - bananas""")
         assert dedent_f(f"""
                 Groceries:
                     {align(items)}
@@ -342,7 +307,7 @@ class TestAlign:
 Groceries:
     - apples
     - bananas
----\
+---
 """)
 
     @staticmethod
@@ -360,7 +325,7 @@ A:
     line2
 B:
     foo
-    bar\
+    bar
 """)
 
     @staticmethod
@@ -374,7 +339,7 @@ B:
 Row:
     a1
     a2 + b1
-         b2\
+         b2
 """)
 
     @staticmethod
@@ -394,7 +359,7 @@ outer line1
         value = "line1\nline2"
         string = f"\N{NO-BREAK SPACE}{align(value)}"
         assert (
-            dedent(string, strip="none")  # pyright: ignore[reportArgumentType]: runtime contract
+            dedent(string)  # pyright: ignore[reportArgumentType]: runtime contract
             == snapshot("\N{NO-BREAK SPACE}line1\n line2")
         )
 
@@ -407,28 +372,28 @@ outer line1
 List:
     - apples
     - bananas
-    - cherries\
+    - cherries
 """)
         assert dedent_f(f"""
                 Value:
                     {align("hello")!r}
                 """) == snapshot("""\
 Value:
-    'hello'\
+    'hello'
 """)
         assert dedent_f(f"""
                 Value:
                     {align(1.23456):.2f}
                 """) == snapshot("""\
 Value:
-    1.23\
+    1.23
 """)
         assert dedent_f(f"""
                 Header:
                     {align("hi"):>10}
                 """) == snapshot("""\
 Header:
-            hi\
+            hi
 """)
 
     @required_py314
@@ -449,7 +414,7 @@ List:
     - apples
     - bananas
     - cherries
----\
+---
 """)
 
     @required_py314
@@ -469,7 +434,7 @@ List:
     - apples
     - bananas
     - cherries
----\
+---
 """)
 
     @required_py314
@@ -490,7 +455,7 @@ List:
     - apples
 - bananas
 - cherries
----\
+---
 """)
 
     @required_py314
@@ -511,7 +476,7 @@ List:
     - apples
     - bananas
     - cherries
----\
+---
 """)
 
     @required_py314
@@ -534,7 +499,15 @@ List:
                 items=ITEMS,
                 size=size,
             )
-        ) == snapshot("List:\n    \n    - apples\n    - bananas\n    - cherries\n    \n---")
+        ) == snapshot("""\
+List:
+    \n\
+    - apples
+    - bananas
+    - cherries
+    \n\
+---
+""")
         assert dedent(
             t(
                 """
@@ -545,7 +518,15 @@ List:
                 items=ITEMS,
                 size=size,
             )
-        ) == snapshot("List:\n    \n- apples\n- bananas\n- cherries\n\n---")
+        ) == snapshot("""\
+List:
+    \n\
+- apples
+- bananas
+- cherries
+
+---
+""")
 
     @required_py314
     @staticmethod

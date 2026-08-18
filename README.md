@@ -2,7 +2,7 @@
 
 What [`textwrap.dedent`](https://docs.python.org/3/library/textwrap.html#textwrap.dedent) should have been.
 
-Dedent and strip multiline strings, and keep interpolated values aligned—without manual whitespace wrangling. Supports t-strings (Python 3.14+) and f-strings (Python 3.10+).
+Dedent multiline strings and keep interpolated values aligned. Supports t-strings (Python 3.14+) and f-strings (Python 3.10+).
 
 > For documentation on how to use dedent with f-strings in Python 3.10-3.13, see [Legacy Support](#legacy-support-python-310-313).
 
@@ -13,7 +13,6 @@ Dedent and strip multiline strings, and keep interpolated values aligned—witho
 - [Installation](#installation)
 - [Options](#options)
   - [`align`](#align)
-  - [`strip`](#strip)
 - [Legacy Support (Python 3.10-3.13)](#legacy-support-python-310-313)
 - [Why `textwrap.dedent` Falls Short](#why-textwrapdedent-falls-short)
 
@@ -34,8 +33,7 @@ print(greeting)
 # Nested multiline strings align correctly with :align
 items = dedent("""
     - apples
-    - bananas
-    """)
+    - bananas""")
 shopping_list = dedent(t"""
     Groceries:
         {items:align}
@@ -66,15 +64,30 @@ result = dedent("""
       World!
     """)
 
-assert result == "  Hello\n  World!"
+assert result == "  Hello\n  World!\n"
 ```
 
-Keep the closing quotes at the indentation you want removed. A trailing `\n` creates an empty
-closing line at column zero, so it preserves the content indentation:
+Keep the closing quotes at the indentation you want removed. Their placement also controls the
+final newline:
 
 ```python
-assert dedent("\n    Hello\n") == "    Hello"
-assert dedent("\n    Hello\n    ") == "Hello"
+with_newline = dedent("""
+    Hello
+    World!
+    """)
+without_newline = dedent("""
+    Hello
+    World!""")
+
+assert with_newline == "Hello\nWorld!\n"
+assert without_newline == "Hello\nWorld!"
+```
+
+A final `\n` creates an empty closing line at column zero. This line preserves content indentation:
+
+```python
+assert dedent("\n    Hello\n") == "    Hello\n"
+assert dedent("\n    Hello\n    ") == "Hello\n"
 ```
 
 ### Why `IndentationError`?
@@ -93,10 +106,12 @@ mixed or malformed indentation instead of silently changing or preserving ambigu
 A shorter space/tab-only line is valid when it matches the beginning of the prefix; it simply
 becomes empty. This mirrors PEP 822.
 
-With the default `strip="smart"`, the usual opening newline and closing-quotes line are removed
-from the result. Unlike native d-strings, `dedent()` runs after Python parses a string, so escape
-sequences have already been processed. For t-strings, literal text is dedented before
-interpolations are rendered.
+`dedent()` omits one opening newline, as PEP 822 requires. It preserves all other whitespace.
+Use the closing-quote placement when you do not want a final newline.
+
+Unlike native d-strings, `dedent()` runs after Python parses a string. Thus, Python has already
+processed escape sequences. For t-strings, `dedent()` processes literal text before it renders
+interpolations.
 
 For runtime strings that use CRLF, `dedent` preserves each `\r\n` pair and excludes the terminal
 `\r` from indentation checks. Other whitespace characters, such as form feed and non-breaking
@@ -133,8 +148,7 @@ from dedent import dedent
 
 items = dedent("""
     - one
-    - two
-    """)
+    - two""")
 
 result = dedent(t"""
     Aligned:
@@ -167,8 +181,7 @@ from dedent import dedent
 
 items = dedent("""
     - one
-    - two
-    """)
+    - two""")
 
 result = dedent(
     t"""
@@ -191,64 +204,6 @@ print(result)
 # ---
 ```
 
-### `strip`
-
-The `strip` parameter controls how leading and trailing whitespace is removed after dedenting. It accepts three modes:
-
-#### `"smart"` (default)
-
-Strips one leading and trailing newline-bounded blank segment. Handles the common case of triple-quoted strings that start and end with a newline.
-
-```python
-from dedent import dedent
-
-result = dedent("""
-    hello!
-    """)
-
-print(repr(result))
-# 'hello!'
-```
-
-#### `"all"`
-
-Strips all surrounding whitespace, equivalent to calling `.strip()` on the result. Use when the string may have extra blank lines you want removed.
-
-```python
-from dedent import dedent
-
-result = dedent(
-    """
-
-
-        hello!
-
-
-        """,
-    strip="all",
-)
-print(repr(result))
-# 'hello!'
-```
-
-#### `"none"`
-
-Leaves whitespace exactly as-is after dedenting. Use when you need to preserve exact whitespace, e.g. for diff output or tests.
-
-```python
-from dedent import dedent
-
-result = dedent(
-    """
-        hello!
-        """,
-    strip="none",
-)
-
-print(repr(result))
-# '\nhello!\n'
-```
-
 ## Legacy Support (Python 3.10-3.13)
 
 On Python 3.10-3.13, t-strings are not available. Use `dedent()` on plain strings and f-strings, and wrap interpolated values with `align()` to get multiline indentation alignment.
@@ -268,8 +223,7 @@ print(message)
 # Use align() inside f-strings for multiline value alignment
 items = dedent("""
     - apples
-    - bananas
-    """)
+    - bananas""")
 shopping_list = dedent(f"""
     Groceries:
         {align(items)}
@@ -376,7 +330,8 @@ shopping_list = dedent(
 )
 ```
 
-`dedent` solves these problems and more:
+`dedent` uses closing-quote placement to control the final newline. Put the closing quotes after
+the final item when nested content must not end with a newline:
 
 ```python
 from dedent import dedent
@@ -384,8 +339,7 @@ from dedent import dedent
 groceries = dedent("""
     - apples
     - bananas
-    - cherries
-    """)
+    - cherries""")
 
 shopping_list = dedent(t"""
     Groceries:
