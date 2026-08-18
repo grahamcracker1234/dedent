@@ -398,7 +398,7 @@ Header:
 
     @required_py314
     @staticmethod
-    def test_align_argument() -> None:
+    def test_tstring_aligns_by_default() -> None:
         assert dedent(
             t(
                 """
@@ -406,27 +406,6 @@ Header:
                         {items}
                     ---
                     """,
-                items=ITEMS,
-            ),
-            align=True,  # pyright: ignore[reportCallIssue]: test is skipped before Python 3.14
-        ) == snapshot("""\
-List:
-    - apples
-    - bananas
-    - cherries
----
-""")
-
-    @required_py314
-    @staticmethod
-    def test_align_format_spec() -> None:
-        assert dedent(
-            t(
-                """
-                List:
-                    {items:align}
-                ---
-                """,
                 items=ITEMS,
             )
         ) == snapshot("""\
@@ -439,7 +418,7 @@ List:
 
     @required_py314
     @staticmethod
-    def test_noalign_overrides_align_argument() -> None:
+    def test_noalign_disables_alignment() -> None:
         assert dedent(
             t(
                 """
@@ -448,8 +427,7 @@ List:
                     ---
                     """,
                 items=ITEMS,
-            ),
-            align=True,  # pyright: ignore[reportCallIssue]: test is skipped before Python 3.14
+            )
         ) == snapshot("""\
 List:
     - apples
@@ -469,8 +447,7 @@ List:
                     ---
                     """,
                 items=align(ITEMS),
-            ),
-            align=True,  # pyright: ignore[reportCallIssue]: test is skipped before Python 3.14
+            )
         ) == snapshot("""\
 List:
     - apples
@@ -481,9 +458,9 @@ List:
 
     @required_py314
     @staticmethod
-    def test_align_directive_with_format_spec() -> None:
-        assert dedent(t("{123:06d:align}")) == snapshot("000123")
-        assert dedent(t("{123:align:06d}")) == snapshot("000123")
+    def test_noalign_directive_with_format_spec() -> None:
+        assert dedent(t("{123:06d:noalign}")) == snapshot("000123")
+        assert dedent(t("{123:noalign:06d}")) == snapshot("000123")
 
     @required_py314
     @staticmethod
@@ -493,7 +470,7 @@ List:
             t(
                 """
                 List:
-                    {items:\n^{size}:align}
+                    {items:\n^{size}}
                 ---
                 """,
                 items=ITEMS,
@@ -530,9 +507,9 @@ List:
 
     @required_py314
     @staticmethod
-    def test_unknown_format_spec() -> None:
+    def test_align_format_spec_is_not_supported() -> None:
         with pytest.raises(ValueError, match=r"(?i)invalid format spec"):
-            _ = dedent(t("{123:algn}"))
+            _ = dedent(t("{123:align}"))
 
     @staticmethod
     def test_wrapper_embeds_markers() -> None:

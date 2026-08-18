@@ -11,8 +11,7 @@ Dedent multiline strings and keep interpolated values aligned. Supports t-string
 - [Usage](#usage)
 - [Dedentation Rules](#dedentation-rules)
 - [Installation](#installation)
-- [Options](#options)
-  - [`align`](#align)
+- [Alignment](#alignment)
 - [Legacy Support (Python 3.10-3.13)](#legacy-support-python-310-313)
 - [Why `textwrap.dedent` Falls Short](#why-textwrapdedent-falls-short)
 
@@ -30,13 +29,13 @@ print(greeting)
 # Hello, Alice!
 # Welcome to the party.
 
-# Nested multiline strings align correctly with :align
+# Nested multiline strings align to the interpolation column by default
 items = dedent("""
     - apples
     - bananas""")
 shopping_list = dedent(t"""
     Groceries:
-        {items:align}
+        {items}
     ---
     """)
 print(shopping_list)
@@ -127,21 +126,17 @@ uv add dedent
 pip install dedent
 ```
 
-## Options
+## Alignment
 
-### `align`
-
-When an interpolation evaluates to a multiline string, only its first line is placed where the `{...}` appears. Subsequent lines keep whatever indentation they already had (often none), so they can appear "shifted left". Alignment fixes this by indenting subsequent lines to match the first.
-
-#### Format Spec Directives
+When a t-string interpolation evaluates to a multiline string, `dedent` aligns each subsequent line
+to the column where the interpolation begins. Column alignment is enabled by default.
 
 > Requires Python 3.14+ (t-strings).
 
-Use format spec directives inside t-strings for per-value control:
+Use the `noalign` format spec directive to disable alignment for an individual value:
 
-- `{value:align}` - Align this multiline value to its interpolation column
-- `{value:noalign}` - Disable alignment for this value [^1]
-- `{value:align:06d}` - Combine with other format specs [^2]
+- `{value:noalign}` - Disable column alignment for this value
+- `{value:06d:noalign}` - Combine with other format specs
 
 ```python
 from dedent import dedent
@@ -151,57 +146,19 @@ items = dedent("""
     - two""")
 
 result = dedent(t"""
-    Aligned:
-        {items:align}
-    Not aligned:
+    Aligned by default:
         {items}
+    Not aligned:
+        {items:noalign}
     """)
 
 print(result)
-# Aligned:
+# Aligned by default:
 #     - one
 #     - two
 # Not aligned:
 #     - one
 # - two
-```
-
-[^1]: Only has an effect when using the [`align=True` argument](#align-argument).
-
-[^2]: This rarely makes sense, unless you are also using custom format specifications, but nonetheless works.
-
-#### `align` Argument
-
-> Requires Python 3.14+ (t-strings).
-
-Pass `align=True` to enable alignment globally for all t-string interpolations. Format spec directives override this.
-
-```python
-from dedent import dedent
-
-items = dedent("""
-    - one
-    - two""")
-
-result = dedent(
-    t"""
-        List 1:
-            {items}
-        List 2:
-            {items}
-        ---
-        """,
-    align=True,
-)
-
-print(result)
-# List 1:
-#     - one
-#     - two
-# List 2:
-#     - one
-#     - two
-# ---
 ```
 
 ## Legacy Support (Python 3.10-3.13)
@@ -240,7 +197,7 @@ Because Python renders an f-string before calling `dedent()`, wrap every multili
 with `align()`. Unwrapped continuation lines at column zero correctly reduce the common indentation
 prefix to zero. T-strings retain interpolation boundaries, so they do not have this limitation.
 
-> There is no equivalent of the [`align` argument](#align-argument) in Python 3.10-3.13. There is no way to automatically align multiline values when using f-strings.
+> There is no way to automatically align multiline values when using f-strings.
 
 ## Why `textwrap.dedent` Falls Short
 
@@ -343,7 +300,7 @@ groceries = dedent("""
 
 shopping_list = dedent(t"""
     Groceries:
-        {groceries:align}
+        {groceries}
     ---
     """)
 

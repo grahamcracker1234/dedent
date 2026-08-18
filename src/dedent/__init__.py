@@ -10,7 +10,7 @@ Key features:
 - Uses PEP 822's exact common-prefix and closing-line indentation rules
 - Omits the opening newline and preserves all other whitespace
 - Aligns multiline interpolated values to their interpolation column
-- On Python 3.14+: t-strings with per-value format spec directives (`{value:align}`)
+- On Python 3.14+: t-strings with per-value alignment opt-out (`{value:noalign}`)
 - On Python 3.10-3.13: f-strings with the `align` wrapper
 """
 

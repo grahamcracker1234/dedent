@@ -1,33 +1,15 @@
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from itertools import filterfalse, tee
 from typing import TYPE_CHECKING, Final, TypeVar, final
 from uuid import uuid4
-
-
-class Missing:
-    """Placeholder for missing values."""
-
-
-MISSING: Final = Missing()
-
-DEFAULT_ALIGN: Final = False
-
-
-class AlignSpec(str, Enum):
-    """Enumeration of alignment-specific format spec directives."""
-
-    ALIGN = "align"
-    NOALIGN = "noalign"
-
 
 _T = TypeVar("_T")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
 _HOLE_MARKER_PREFIX: Final = "DEDENT_HOLE"
+_NOALIGN_SPEC: Final = "noalign"
 _SEP: Final = "\x00"
 
 _ALIGN_MARKER: Final = re.compile(
@@ -368,91 +350,51 @@ if sys.version_info >= (3, 14):
     from string.templatelib import Interpolation, Template, convert
     from typing import LiteralString
 
-    def _partition(
-        it: Iterable[_T], pred: Callable[[_T], bool]
-    ) -> tuple[filter[_T], filterfalse[_T]]:
+    def _parse_format_spec(format_spec: str) -> tuple[str, bool]:
         """
-        Partition an iterable into two filters based on a predicate.
+        Remove the `noalign` directive from a format specification.
 
         Args:
-            it: The iterable to partition.
-            pred: A function that returns True for items in the first partition.
+            format_spec: The format specification, potentially containing `noalign`.
 
         Returns:
-            A tuple of (matching_filter, non_matching_filter) where matching_filter contains items
-            for which predicate returns True, and non_matching_filter contains items for which
-            predicate returns False.
-        """
-        it1, it2 = tee(it)
-        return filter(pred, it1), filterfalse(pred, it2)
-
-    def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
-        """
-        Parse format spec to extract alignment-specific directives.
-
-        Extracts 'align' and 'noalign' directives from the format spec and returns the remaining
-        format spec along with the alignment override.
-
-        Args:
-            format_spec: The format specification string, potentially containing alignment
-                directives separated by colons.
-
-        Returns:
-            A tuple of (remaining_format_spec, align_override) where:
-            - remaining_format_spec: The format spec with alignment directives removed.
-            - align_override: True if 'align' was found, False if 'noalign' was found, or None if
-                neither was present. If multiple alignment specs are present, the last one takes
-                precedence.
+            The remaining format specification and whether column alignment is disabled.
         """
         specs = format_spec.split(":")
-
-        pred = set(AlignSpec).__contains__
-        dedent_specs, other_specs = _partition(specs, pred)
-        *_, dedent_spec = list(dedent_specs) or [None]
-
-        format_spec = ":".join(other_specs)
-
-        if dedent_spec is None:
-            return format_spec, None
-
-        return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
+        return ":".join(spec for spec in specs if spec != _NOALIGN_SPEC), _NOALIGN_SPEC in specs
 
     def _handle_item(
         item: Interpolation[object],
         *,
         preceding_text: str,
-        align: bool,
     ) -> str:
         """
-        Convert and format one interpolation, then apply requested alignment.
+        Convert, format, and column-align one interpolation.
 
         Args:
             item: The interpolation to render.
             preceding_text: The text that precedes this item, used for alignment.
-            align: Whether to align multiline values by default (can be overridden by format spec
-                directives).
 
         Returns:
             The processed string representation of the item.
         """
         value = convert(item.value, item.conversion)
-        align_override: bool | None = None
+        disable_alignment = False
 
         if item.format_spec:
-            format_spec, align_override = _parse_format_spec(item.format_spec)
+            format_spec, disable_alignment = _parse_format_spec(item.format_spec)
             if format_spec:
                 value = format(value, format_spec)
 
         value = str(value)
-        should_align = align_override if align_override is not None else align
         if _ALIGN_MARKER.search(value):
             return process_align_markers(value, preceding_text=preceding_text)
-        if should_align:
+        if not disable_alignment:
             value = _align_value(value, preceding_text)
 
         return value
 
-    def _dedent_template(template: Template, *, align: bool) -> str:
+    def _dedent_template(template: Template) -> str:
         """
         Dedent template literals before rendering their interpolations.
 
@@ -471,34 +413,28 @@ if sys.version_info >= (3, 14):
             literals.append("")
 
         def render_interpolation(item: Interpolation[object], preceding_text: str) -> str:
-            return _handle_item(item, preceding_text=preceding_text, align=align)
+            return _handle_item(item, preceding_text=preceding_text)
 
         return _dedent_and_fill(literals, interpolations, render_interpolation)
 
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
         /,
-        *,
-        align: bool | Missing = MISSING,
     ) -> str:
         r'''
-        Dedent and align a template string.
+        Dedent a template string and column-align its interpolated values.
 
         This function removes the longest exact indentation prefix shared by all nonblank lines,
         preserving relative indentation. A final whitespace-only line constrains the prefix like
         the closing-quotes line in PEP 822. It supports both literal strings and t-strings
         (`Template` objects) with interpolations.
 
-        For t-strings, interpolated values can include format spec directives:
-        - `{value:align}` - Enable alignment for this value
-        - `{value:noalign}` - Disable alignment for this value
-        - `{value:align:06d}` - Combine alignment directive with other format specs
+        For t-strings, interpolated values use column alignment by default. Use the format spec
+        directive:
+        - `{value:noalign}` - Disable column alignment for this value
 
         Args:
             string: Template or literal string to dedent.
-            align: Whether multiline interpolated values start each line in the column where the
-                interpolation begins. Defaults to False. Can be overridden per value using format
-                spec directives.
         Raises:
             IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string or Template object.
@@ -516,13 +452,11 @@ if sys.version_info >= (3, 14):
             >>> print(result)
             Hello, World!
         '''  # ruff: ignore[docstring-extraneous-exception]
-        align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
-
         match string:
             case str() as formatted_string:
                 return _dedent_marked_string(formatted_string)
             case Template() as template:
-                return _dedent_template(template, align=align)
+                return _dedent_template(template)
             case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
                 message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
                 raise TypeError(message)
