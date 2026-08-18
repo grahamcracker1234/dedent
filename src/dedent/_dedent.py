@@ -313,40 +313,20 @@ def _split_align_markers(string: str) -> tuple[list[str], list[str]]:
     return literals, values
 
 
-def _render_align_marker(value: str, preceding_text: str) -> str:
+def _render_align_value(value: str, preceding_text: str) -> str:
     """
-    Render one aligned value, processing nested markers first.
+    Render one aligned value after recursively rendering its nested values.
 
     Returns:
         The marker-free value aligned to its preceding text.
     """
-    return _align_value(process_align_markers(value), preceding_text)
-
-
-def process_align_markers(string: str, *, preceding_text: str = "") -> str:
-    """
-    Detect alignment markers in `string`, apply indentation alignment, and remove the markers.
-
-    This is called by `dedent()` when it receives a plain string (the f-string path).
-    Markers are inserted by `Aligned` wrappers created via `align`.
-
-    Args:
-        string: The string potentially containing alignment markers.
-        preceding_text: Text preceding `string`, used to align a marker at its start.
-
-    Returns:
-        The string with markers removed and aligned values indented appropriately.
-    """
-    literals, values = _split_align_markers(string)
-    if not values:
-        return string
-
-    return _fill_parts(
+    literals, nested_values = _split_align_markers(value)
+    rendered = _fill_parts(
         literals,
-        values,
-        _render_align_marker,
-        preceding_text=preceding_text,
+        nested_values,
+        _render_align_value,
     )
+    return _align_value(rendered, preceding_text)
 
 
 def _dedent_and_fill(
@@ -379,7 +359,7 @@ def _dedent_marked_string(string: str) -> str:
         The dedented string with deferred values restored and aligned.
     """
     literals, values = _split_align_markers(string)
-    return _dedent_and_fill(literals, values, _render_align_marker)
+    return _dedent_and_fill(literals, values, _render_align_value)
 
 
 if sys.version_info >= (3, 14):
@@ -441,21 +421,15 @@ if sys.version_info >= (3, 14):
         Returns:
             The dedented and rendered template.
         """
-        interpolations: list[Interpolation[object]] = []
-        literals = [""]
-
-        for item in template:
-            if isinstance(item, str):
-                literals[-1] += item
-                continue
-
-            interpolations.append(item)
-            literals.append("")
 
         def render_interpolation(item: Interpolation[object], preceding_text: str) -> str:
             return _handle_item(item, preceding_text=preceding_text)
 
-        return _dedent_and_fill(literals, interpolations, render_interpolation)
+        return _dedent_and_fill(
+            list(template.strings),
+            list(template.interpolations),
+            render_interpolation,
+        )
 
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
