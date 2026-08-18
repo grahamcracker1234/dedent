@@ -40,6 +40,14 @@ Groceries:
 """)
 
 
+def test_alignment_after_terminal_newline_preserves_interpolation_column() -> None:
+    value = "item\n"
+    assert dedent_f(f"""
+            List:
+                {align(value)}
+            """) == snapshot("List:\n    item\n    \n")
+
+
 def test_two_values() -> None:
     a = "line1\nline2"
     b = "foo\nbar"

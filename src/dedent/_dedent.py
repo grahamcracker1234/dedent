@@ -23,6 +23,7 @@ def _align_value(value: str, preceding_text: str) -> str:
     Align a multiline value to the column where it is inserted.
 
     If the value contains newlines, each line after the first starts directly below the first.
+    Alignment is also added after a terminal newline. This keeps later text at the insertion column.
 
     Args:
         value: The string value to align, potentially containing newlines.
