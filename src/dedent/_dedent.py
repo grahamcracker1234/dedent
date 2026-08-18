@@ -159,6 +159,8 @@ def align(value: object) -> Aligned:
 
     Wrap an interpolated value so that, when the surrounding f-string is passed to
     `dedent()`, subsequent lines of the value start in the same column as the first.
+    t-string interpolations align automatically; an `align()`-marked value there raises
+    `TypeError`.
 
     Example::
 
@@ -375,6 +377,9 @@ if sys.version_info >= (3, 14):
             item: The interpolation to render.
             preceding_text: The text that precedes this item, used for alignment.
 
+        Raises:
+            TypeError: If the rendered value contains `align()` markers.
+
         Returns:
             The processed string representation of the item.
         """
@@ -388,7 +393,8 @@ if sys.version_info >= (3, 14):
 
         value = str(value)
         if _ALIGN_MARKER.search(value):
-            return process_align_markers(value, preceding_text=preceding_text)
+            message = "align() is only supported in f-strings; t-strings align automatically"
+            raise TypeError(message)
         if not disable_alignment:
             value = _align_value(value, preceding_text)
 
@@ -433,11 +439,15 @@ if sys.version_info >= (3, 14):
         directive:
         - `{value:noalign}` - Disable column alignment for this value
 
+        `align()` is only for f-strings. A t-string interpolation whose rendered value contains
+        `align()` markers raises `TypeError`.
+
         Args:
             string: Template or literal string to dedent.
         Raises:
             IndentationError: If a line is incompatible with the common indentation prefix.
-            TypeError: If the input is not a string or Template object.
+            TypeError: If the input is not a string or Template, or if a t-string interpolation
+                contains `align()` markers.
 
         Returns:
             The string with common leading whitespace and its opening newline removed. All other

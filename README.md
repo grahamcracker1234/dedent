@@ -79,7 +79,7 @@ See [Dedentation Rules](#dedentation-rules) for newline, closing-quote, and mixe
 
 > Requires Python 3.14+.
 
-When a t-string interpolation evaluates to a multiline string, `dedent` aligns each subsequent line to the column where the interpolation begins. Column alignment is enabled by default.
+When a t-string interpolation evaluates to a multiline string, `dedent` aligns each subsequent line to the column where the interpolation begins. Column alignment is enabled by default. Do not wrap interpolations with `align()`; that wrapper is only for f-strings and raises `TypeError` here.
 
 Use the `dedent`-specific `noalign` format specifier to disable alignment for an individual value:
 
@@ -110,7 +110,7 @@ print(result)
 
 ### f-string alignment
 
-> For Python 3.10-3.13. Use [t-string alignment](#t-string-alignment) on Python 3.14+.
+> For f-strings on every supported Python version. Use [t-string alignment](#t-string-alignment) on Python 3.14+ t-strings; `align()` inside a t-string interpolation raises `TypeError`.
 
 Use `align()` with f-strings because Python 3.10-3.13 do not support t-strings:
 

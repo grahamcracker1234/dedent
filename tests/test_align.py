@@ -10,7 +10,11 @@ ITEMS = "- apples\n- bananas\n- cherries"
 
 def test_unaligned_multiline_value() -> None:
     # Column-0 lines from interpolation prevent a common indent prefix.
-    assert dedent_f(f"\n    List:\n        {ITEMS}\n    ---\n    ") == snapshot("""\
+    assert dedent_f(f"""
+    List:
+        {ITEMS}
+    ---
+    """) == snapshot("""\
     List:
         - apples
 - bananas
@@ -71,7 +75,8 @@ Row:
 def test_nested_wrappers() -> None:
     inner = "line1\nline2"
     outer = f"outer {align(inner)}"
-    result = dedent_f(f"  {align(outer)}")
+    result = dedent_f(f"""
+        {align(outer)}""")
     assert result == snapshot("""\
 outer line1
       line2\
@@ -163,23 +168,14 @@ List:
 
 
 @required_py314
-def test_align_wrapper_is_not_applied_twice() -> None:
-    assert dedent(
-        t(
-            """
-                List:
-                    {items}
-                ---
-                """,
-            items=align(ITEMS),
-        )
-    ) == snapshot("""\
-List:
-    - apples
-    - bananas
-    - cherries
----
-""")
+def test_align_wrapper_rejected_in_tstring() -> None:
+    message = r"align\(\) is only supported in f-strings; t-strings align automatically"
+    with pytest.raises(TypeError, match=message):
+        _ = dedent(t("{items}", items=align(ITEMS)))
+    with pytest.raises(TypeError, match=message):
+        _ = dedent(t("{items}", items=str(align(ITEMS))))
+    with pytest.raises(TypeError, match=message):
+        _ = dedent(t("{items:noalign}", items=align(ITEMS)))
 
 
 @required_py314
