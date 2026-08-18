@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import filterfalse, tee
-from typing import TYPE_CHECKING, Final, Literal, TypeVar, cast, final
+from typing import TYPE_CHECKING, Final, Literal, TypeVar, final
 from uuid import uuid4
 
 
@@ -28,7 +28,6 @@ class AlignSpec(str, Enum):
 Strip = Literal["smart", "all", "none"]
 _T = TypeVar("_T")
 
-_INDENTED: Final = re.compile(r"^([ \t]+)")
 _SMART_STRIP_START: Final = re.compile(r"^[^\S\r\n]*(?:\r\n|[\r\n])?")
 _SMART_STRIP_END: Final = re.compile(r"(?:\r\n|[\r\n])?[^\S\r\n]*\Z")
 
@@ -42,41 +41,23 @@ _ALIGN_MARKER: Final = re.compile(
 )
 
 
-def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
-    """
-    Safely extract the first capture group from a regex match.
-
-    Args:
-        pattern: The compiled regex pattern to match against.
-        string: The string to match.
-
-    Returns:
-        The first capture group if the pattern matches, None otherwise.
-    """
-    if m := pattern.match(string):
-        return m.group(1)
-    return None
-
-
 def _align_value(value: str, preceding_text: str) -> str:
     """
-    Align multiline value to match the indentation of the current line.
+    Align a multiline value to the column where it is inserted.
 
-    If the value contains newlines, each line after the first is indented to match the indentation
-    of the current line in the preceding text.
+    If the value contains newlines, each line after the first starts directly below the first.
 
     Args:
         value: The string value to align, potentially containing newlines.
-        preceding_text: The text that precedes this value, used to determine the current line's
-            indentation.
+        preceding_text: The text that precedes this value, used to determine its insertion column.
 
     Returns:
-        The value with subsequent lines indented to match the current line's indentation, or the
-        original value if no indentation is found or if the value doesn't contain newlines.
+        The value with subsequent lines aligned to the insertion column.
     """
     current_line = preceding_text[preceding_text.rfind("\n") + 1 :]
-    if indent := _safe_match_first_group(_INDENTED, current_line):
-        return value.replace("\n", "\n" + indent)
+    alignment = "".join(character if character in " \t" else " " for character in current_line)
+    if alignment:
+        return value.replace("\n", "\n" + alignment)
 
     return value
 
@@ -204,8 +185,7 @@ def align(value: object) -> Aligned:
     Mark a value for automatic indentation alignment inside `dedent()`.
 
     Wrap an interpolated value so that, when the surrounding f-string is passed to
-    `dedent()`, subsequent lines of the value are indented to match the current
-    indentation context.
+    `dedent()`, subsequent lines of the value start in the same column as the first.
 
     Example::
 
@@ -449,7 +429,7 @@ if sys.version_info >= (3, 14):
         return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
 
     def _handle_item(
-        item: Interpolation,
+        item: Interpolation[object],
         *,
         preceding_text: str,
         align: bool,
@@ -466,7 +446,7 @@ if sys.version_info >= (3, 14):
         Returns:
             The processed string representation of the item.
         """
-        value = convert(cast("object", item.value), item.conversion)
+        value = convert(item.value, item.conversion)
         align_override: bool | None = None
 
         if item.format_spec:
@@ -490,7 +470,7 @@ if sys.version_info >= (3, 14):
         Returns:
             The dedented and rendered template.
         """
-        interpolations: list[Interpolation] = []
+        interpolations: list[Interpolation[object]] = []
         literals = [""]
 
         for item in template:
@@ -501,7 +481,7 @@ if sys.version_info >= (3, 14):
             interpolations.append(item)
             literals.append("")
 
-        def render_interpolation(item: Interpolation, preceding_text: str) -> str:
+        def render_interpolation(item: Interpolation[object], preceding_text: str) -> str:
             return _handle_item(item, preceding_text=preceding_text, align=align)
 
         return _dedent_and_fill(literals, interpolations, render_interpolation, strip)
@@ -528,9 +508,9 @@ if sys.version_info >= (3, 14):
 
         Args:
             string: Template or literal string to dedent.
-            align: Whether to align multiline interpolated values by indenting subsequent lines to
-                match the indentation of the current line. Defaults to False. Can be overridden
-                per-value using format spec directives.
+            align: Whether multiline interpolated values start each line in the column where the
+                interpolation begins. Defaults to False. Can be overridden per value using format
+                spec directives.
             strip: Stripping mode to use.
                 - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
                 - "all": Strips all surrounding whitespace.
@@ -552,7 +532,7 @@ if sys.version_info >= (3, 14):
             ...     """)
             >>> print(result)
             Hello, World!
-        '''  # noqa: DOC502
+        '''  # ruff: ignore[docstring-extraneous-exception]
         align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
@@ -607,7 +587,7 @@ else:
             List:
                 - a
                 - b
-        '''  # noqa: DOC502
+        '''  # ruff: ignore[docstring-extraneous-exception]
         strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
 
         if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]

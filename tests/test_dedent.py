@@ -28,7 +28,7 @@ TYPICAL = """
 
 def t(source: str, /, **ns: object) -> _T:
     code = compile(f"t'''{source}'''", "<t-string>", "eval")
-    return cast("_T", eval(code, ns))  # noqa: S307
+    return cast("_T", eval(code, ns))  # ruff: ignore[suspicious-eval-usage]
 
 
 def dedent_f(string: str) -> str:
@@ -374,7 +374,7 @@ B:
 Row:
     a1
     a2 + b1
-    b2\
+         b2\
 """)
 
     @staticmethod
@@ -384,18 +384,18 @@ Row:
         result = dedent_f(f"  {align(outer)}")
         assert result == snapshot("""\
 outer line1
-line2\
+      line2\
 """)
         assert "\x00" not in result
         assert "DEDENT_ALIGN" not in result
 
     @staticmethod
-    def test_alignment_indent_uses_only_spaces_and_tabs() -> None:
+    def test_alignment_uses_interpolation_column_with_non_space_prefix() -> None:
         value = "line1\nline2"
         string = f"\N{NO-BREAK SPACE}{align(value)}"
         assert (
             dedent(string, strip="none")  # pyright: ignore[reportArgumentType]: runtime contract
-            == snapshot("\N{NO-BREAK SPACE}line1\nline2")
+            == snapshot("\N{NO-BREAK SPACE}line1\n line2")
         )
 
     @staticmethod

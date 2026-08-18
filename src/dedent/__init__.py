@@ -9,7 +9,7 @@ Key features:
 
 - Uses PEP 822's exact common-prefix and closing-line indentation rules
 - Smart-strips leading/trailing whitespace by default
-- Aligns multiline interpolated values to match surrounding indentation
+- Aligns multiline interpolated values to their interpolation column
 - On Python 3.14+: t-strings with per-value format spec directives (`{value:align}`)
 - On Python 3.10-3.13: f-strings with the `align` wrapper
 """

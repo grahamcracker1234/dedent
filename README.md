@@ -124,7 +124,7 @@ When an interpolation evaluates to a multiline string, only its first line is pl
 
 Use format spec directives inside t-strings for per-value control:
 
-- `{value:align}` - Align this multiline value to the current indentation
+- `{value:align}` - Align this multiline value to its interpolation column
 - `{value:noalign}` - Disable alignment for this value [^1]
 - `{value:align:06d}` - Combine with other format specs [^2]
 
@@ -334,11 +334,13 @@ groceries = dedent("""\
 """)
 
 # Stripping the newlines
-groceries = dedent("""
+groceries = dedent(
+    """
     - apples
     - bananas
     - cherries
-""".strip("\n"))
+""".strip("\n")
+)
 
 # But the shopping list still comes out wrong:
 #     Groceries:
@@ -355,19 +357,23 @@ Sure, we could manually adjust the indentation with a bit of string manipulation
 ```python
 from textwrap import dedent
 
-groceries = dedent("""
+groceries = dedent(
+    """
     - apples
     - bananas
     - cherries
-""".strip("\n"))
+""".strip("\n")
+)
 
 manual_groceries = ("\n" + " " * 8).join(groceries.splitlines())
 
-shopping_list = dedent(f"""
+shopping_list = dedent(
+    f"""
     Groceries:
         {manual_groceries}
     ---
-""".strip("\n"))
+""".strip("\n")
+)
 ```
 
 `dedent` solves these problems and more:
