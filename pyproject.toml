@@ -61,11 +61,11 @@ Changelog = "https://github.com/grahamcracker1234/dedent/releases"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.37.1",
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
-    "ruff>=0.14.11",
-    "syrupy>=5.1.0",
+    "basedpyright>=1.39.10",
+    "inline-snapshot>=0.35.4",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.3",
 ]
 
 [build-system]
@@ -100,22 +100,22 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 ignore = [
-    "D203",   # Conflicts with D211
-    "D212",   # Conflicts with D213
-    "SLF001", # Conflicts with basedpyright[reportPrivateUsage]
+    "incorrect-blank-line-before-class", # Conflicts with D211
+    "multi-line-summary-first-line",     # Conflicts with D213
+    "private-member-access",             # Conflicts with basedpyright[reportPrivateUsage]
     # Formatter conflicting rules
-    "W191",
-    "E111",
-    "E114",
-    "E117",
-    "D206",
-    "D300",
-    "Q000",
-    "Q001",
-    "Q002",
-    "Q003",
-    "COM812",
-    "COM819",
+    "tab-indentation",
+    "indentation-with-invalid-multiple",
+    "indentation-with-invalid-multiple-comment",
+    "over-indented",
+    "docstring-tab-indentation",
+    "triple-single-quotes",
+    "bad-quotes-inline-string",
+    "bad-quotes-multiline-string",
+    "bad-quotes-docstring",
+    "avoidable-escaped-quote",
+    "missing-trailing-comma",
+    "prohibited-trailing-comma",
 ]
 select = [
     "FAST",  # FastAPI
@@ -186,11 +186,11 @@ convention = "pep257"
 [tool.ruff.lint.per-file-ignores]
 "*.py" = ["PYI"]
 "**/tests/**/*.py" = [
-    "S101",    # assert
-    "PLR2004", # magic-value-comparison
-    "INP",     # flake8-no-pep420 (implicit-namespace-package)
-    "D",       # pydocstyle
-    "DOC",     # pydoclint
+    "assert",
+    "magic-value-comparison",
+    "INP", # flake8-no-pep420 (implicit-namespace-package)
+    "D",   # pydocstyle
+    "DOC", # pydoclint
 ]
 "**/scripts/*.py" = [
     "INP", # flake8-no-pep420 (implicit-namespace-package)
@@ -202,3 +202,6 @@ convention = "pep257"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = ["--import-mode=importlib"]
+
+[tool.inline-snapshot]
+format-command = "ruff format --stdin-filename {filename}"

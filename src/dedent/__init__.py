@@ -2,15 +2,15 @@
 A library for dedenting text with support for interpolated values.
 
 This module provides a `dedent` function that removes common leading whitespace from
-multiline strings, similar to `textwrap.dedent` but with automatic smart stripping and
-multiline-value alignment. Works with Python 3.10+.
+multiline strings, follows PEP 822's newline behavior, and aligns multiline values.
+Works with Python 3.10+.
 
 Key features:
 
-- Removes minimum common indentation from all lines
-- Smart-strips leading/trailing whitespace by default
-- Aligns multiline interpolated values to match surrounding indentation
-- On Python 3.14+: t-strings with per-value format spec directives (`{value:align}`)
+- Uses PEP 822's exact common-prefix and closing-line indentation rules
+- Omits the opening newline and preserves all other whitespace
+- Aligns multiline interpolated values to their interpolation column
+- On Python 3.14+: t-strings with per-value alignment opt-out (`{value:noalign}`)
 - On Python 3.10-3.13: f-strings with the `align` wrapper
 """
 

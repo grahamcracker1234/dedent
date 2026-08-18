@@ -1,136 +1,176 @@
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from functools import reduce
-from itertools import filterfalse, tee
-from typing import TYPE_CHECKING, Final, Literal, cast, final
+from typing import TYPE_CHECKING, Final, TypeVar, final
 from uuid import uuid4
 
-
-class Missing:
-    """Placeholder for missing values."""
-
-
-MISSING: Final = Missing()
-
-DEFAULT_STRIP: Final = "smart"
-DEFAULT_ALIGN: Final = False
-
-
-class AlignSpec(str, Enum):
-    """Enumeration of alignment-specific format spec directives."""
-
-    ALIGN = "align"
-    NOALIGN = "noalign"
-
-
-Strip = Literal["smart", "all", "none"]
-
-_INDENTED: Final = re.compile(r"^(\s+)")
-_INDENTED_WITH_CONTENT: Final = re.compile(r"^(\s+)\S+")
-_SMART_STRIP: Final = re.compile(r"^[^\S\n]*\n?")
+_T = TypeVar("_T")
 
 _ALIGN_MARKER_PREFIX: Final = "DEDENT_ALIGN"
+_NOALIGN_SPEC: Final = "noalign"
 _SEP: Final = "\x00"
 
 _ALIGN_MARKER: Final = re.compile(
     rf"{_SEP}{_ALIGN_MARKER_PREFIX}:([a-f0-9]{{32}}){_SEP}(.*?){_SEP}{_ALIGN_MARKER_PREFIX}:\1{_SEP}",
     re.DOTALL,
 )
-
-
-def _safe_match_first_group(pattern: re.Pattern[str], string: str) -> str | None:
-    """
-    Safely extract the first capture group from a regex match.
-
-    Args:
-        pattern: The compiled regex pattern to match against.
-        string: The string to match.
-
-    Returns:
-        The first capture group if the pattern matches, None otherwise.
-    """
-    if m := pattern.match(string):
-        return m.group(1)
-    return None
+_OPENING_LINE: Final = re.compile(r"^[ \t]*(\r\n|\r|\n)")
 
 
 def _align_value(value: str, preceding_text: str) -> str:
     """
-    Align multiline value to match the indentation of the current line.
+    Align a multiline value to the column where it is inserted.
 
-    If the value contains newlines, each line after the first is indented to match the indentation
-    of the current line in the preceding text.
+    If the value contains newlines, each line after the first starts directly below the first.
+    Alignment is also added after a terminal newline. This keeps later text at the insertion column.
 
     Args:
         value: The string value to align, potentially containing newlines.
-        preceding_text: The text that precedes this value, used to determine the current line's
-            indentation.
+        preceding_text: The text that precedes this value, used to determine its insertion column.
 
     Returns:
-        The value with subsequent lines indented to match the current line's indentation, or the
-        original value if no indentation is found or if the value doesn't contain newlines.
+        The value with subsequent lines aligned to the insertion column.
     """
     current_line = preceding_text[preceding_text.rfind("\n") + 1 :]
-    if indent := _safe_match_first_group(_INDENTED, current_line):
-        return value.replace("\n", "\n" + indent)
+    alignment = "".join(character if character in " \t" else " " for character in current_line)
+    if alignment:
+        return value.replace("\n", "\n" + alignment)
 
     return value
 
 
-def _strip_string(string: str, strip: Strip) -> str:
+def _omit_opening_newline(string: str) -> str:
     """
-    Strip leading and trailing whitespace from a string.
+    Omit the newline immediately following opening triple quotes.
 
     Args:
-        string: The string to strip.
-        strip: The strip mode to use.
+        string: The dedented string.
 
     Returns:
-        The stripped string.
+        The string with one initial line ending removed, if present.
     """
-    match strip:
-        case "smart":
-            string = _SMART_STRIP.sub("", string, count=1)
-            # Reversing to get the rightmost match instead of leftmost
-            return _SMART_STRIP.sub("", string[::-1], count=1)[::-1]
-        case "all":
-            return string.strip()
-        case "none":
-            return string
+    if string.startswith("\r\n"):
+        return string[2:]
+    if string.startswith(("\r", "\n")):
+        return string[1:]
+    return string
 
 
-def _dedent_string(string: str) -> str:
+def _common_indentation(string: str) -> str | None:
     """
-    Remove common leading whitespace from a string.
+    Find and validate the longest common leading indentation in a string.
+
+    This follows the indentation rules proposed by PEP 822: indentation is an
+    exact prefix of spaces and tabs, space/tab-only lines are ignored, and a
+    final space/tab-only line constrains the indentation like a closing
+    triple-quote line. A carriage return before a newline is preserved as part
+    of the line ending rather than treated as content.
 
     Args:
-        string: The string to dedent.
+        string: The literal framework to inspect.
+
+    Raises:
+        IndentationError: If a line's leading whitespace is inconsistent with the
+            common indentation prefix.
 
     Returns:
-        The dedented string.
+        The common indentation, or `None` when no line determines it.
     """
-    lines = string.split("\n")
-    max_indent = len(string)
-    min_indent: int = reduce(
-        lambda acc, line: (
-            min(acc, len(indent))
-            if (indent := _safe_match_first_group(_INDENTED_WITH_CONTENT, line))
-            else acc
-        ),
-        lines,
-        max_indent,
+    lines = [line.removesuffix("\r") for line in string.split("\n")]
+    last_index = len(lines) - 1
+    indentations = [
+        line[: len(line) - len(line.lstrip(" \t"))]
+        for index, line in enumerate(lines)
+        if line.strip(" \t") or (last_index > 0 and index == last_index)
+    ]
+
+    if not indentations:
+        return None
+
+    indentation = indentations[0]
+    for candidate in indentations[1:]:
+        common_length = 0
+        for left, right in zip(indentation, candidate, strict=False):
+            if left != right:
+                break
+            common_length += 1
+        indentation = indentation[:common_length]
+        if not indentation:
+            break
+
+    for line_number, line in enumerate(lines, start=1):
+        if len(line) >= len(indentation):
+            is_compatible = line.startswith(indentation)
+        else:
+            is_compatible = indentation.startswith(line)
+        if not is_compatible:
+            message = f"inconsistent indentation in dedented string at line {line_number}"
+            raise IndentationError(message)
+
+    return indentation
+
+
+def _remove_indentation(literals: list[str], indentation: str) -> list[str]:
+    """
+    Remove indentation from literal parts without crossing their opaque holes.
+
+    Returns:
+        The dedented literal parts.
+    """
+    if not indentation:
+        return literals
+
+    dedented_literals: list[str] = []
+    at_line_start = True
+    removed = 0
+    last_index = len(literals) - 1
+
+    for literal_index, literal in enumerate(literals):
+        dedented: list[str] = []
+        for character in literal:
+            if character == "\n":
+                dedented.append(character)
+                at_line_start = True
+                removed = 0
+            elif at_line_start and removed < len(indentation) and character in " \t":
+                removed += 1
+            else:
+                dedented.append(character)
+                at_line_start = False
+
+        dedented_literals.append("".join(dedented))
+        if literal_index < last_index:
+            at_line_start = False
+
+    return dedented_literals
+
+
+def _dedent_literal_parts(literals: list[str]) -> list[str]:
+    """
+    Dedent literal parts while treating the holes between them as opaque content.
+
+    Returns:
+        The dedented parts, with a spaces-and-tabs-only opening line omitted.
+    """
+    normalized_literals = literals.copy()
+    opening_line = _OPENING_LINE.match(normalized_literals[0])
+    if opening_line is not None:
+        line_ending = opening_line.group(1)
+        normalized_literals[0] = line_ending + normalized_literals[0][opening_line.end() :]
+
+    framework = _SEP.join(normalized_literals)
+    indentation = _common_indentation(framework)
+    dedented_literals = (
+        normalized_literals
+        if indentation is None
+        else _remove_indentation(normalized_literals, indentation)
     )
 
-    if min_indent == max_indent:
-        return string
+    if opening_line is not None:
+        dedented_literals[0] = _omit_opening_newline(dedented_literals[0])
 
-    return "\n".join(
-        line[min_indent:] if len(line) >= min_indent and line[:min_indent].isspace() else line
-        for line in lines
-    )
+    return dedented_literals
 
 
 @final
@@ -174,8 +214,9 @@ def align(value: object) -> Aligned:
     Mark a value for automatic indentation alignment inside `dedent()`.
 
     Wrap an interpolated value so that, when the surrounding f-string is passed to
-    `dedent()`, subsequent lines of the value are indented to match the current
-    indentation context.
+    `dedent()`, subsequent lines of the value start in the same column as the first.
+    t-string interpolations align automatically; an `align()`-marked value there raises
+    `TypeError`.
 
     Example::
 
@@ -183,13 +224,12 @@ def align(value: object) -> Aligned:
 
         items = dedent(\"\"\"
             - apples
-            - bananas
-        \"\"\")
+            - bananas\"\"\")
         shopping_list = dedent(f\"\"\"
             Groceries:
                 {align(items)}
             ---
-        \"\"\")
+            \"\"\")
         print(shopping_list)
         # Groceries:
         #     - apples
@@ -207,224 +247,261 @@ def align(value: object) -> Aligned:
     return Aligned(_value=value)
 
 
-def process_align_markers(string: str) -> str:
+def _extend_current_line(current_line: str, text: str) -> str:
     """
-    Detect alignment markers in `string`, apply indentation alignment, and remove the markers.
-
-    This is called by `dedent()` when it receives a plain string (the f-string path).
-    Markers are inserted by `Aligned` wrappers created via `align`.
-
-    Args:
-        string: The string potentially containing alignment markers.
+    Extend the current output line with newly rendered text.
 
     Returns:
-        The string with markers removed and aligned values indented appropriately.
+        The text after the final newline, or the extended current line if there is no newline.
     """
-    result_parts: list[str] = []
+    _, separator, suffix = text.rpartition("\n")
+    return suffix if separator else current_line + text
+
+
+def _fill_parts(
+    literals: list[str],
+    holes: list[_T],
+    render: Callable[[_T, str], str],
+    *,
+    preceding_text: str = "",
+) -> str:
+    """
+    Fill holes between literal parts while tracking the current output line.
+
+    Raises:
+        RuntimeError: If the literal and hole counts are inconsistent.
+
+    Returns:
+        The rendered literal and hole parts.
+    """
+    if len(literals) != len(holes) + 1:
+        message = "literal and hole counts are inconsistent"
+        raise RuntimeError(message)
+
+    result_parts = [literals[0]]
+    current_line = _extend_current_line(
+        preceding_text[preceding_text.rfind("\n") + 1 :],
+        literals[0],
+    )
+
+    for hole, literal in zip(holes, literals[1:], strict=True):
+        rendered = render(hole, current_line)
+        result_parts.extend((rendered, literal))
+        current_line = _extend_current_line(current_line, rendered)
+        current_line = _extend_current_line(current_line, literal)
+
+    return "".join(result_parts)
+
+
+def _split_align_markers(string: str) -> tuple[list[str], list[str]]:
+    """
+    Split a string into literal parts and top-level aligned values.
+
+    Returns:
+        The alternating literal parts and aligned values.
+    """
+    literals: list[str] = []
+    values: list[str] = []
     last_end = 0
 
     for match in _ALIGN_MARKER.finditer(string):
-        # Text before this marker
-        result_parts.append(string[last_end : match.start()])
-        # Preceding text is what we've built so far
-        preceding_text = "".join(result_parts)
-        value = match.group(2)
-        value = process_align_markers(value)  # Handle nested markers first
-        aligned_value = _align_value(value, preceding_text)
-        result_parts.append(aligned_value)
+        literals.append(string[last_end : match.start()])
+        values.append(match.group(2))
         last_end = match.end()
 
-    if last_end == 0:
-        return string
+    literals.append(string[last_end:])
+    return literals, values
 
-    result_parts.append(string[last_end:])
-    return "".join(result_parts)
+
+def _render_align_value(value: str, preceding_text: str) -> str:
+    """
+    Render one aligned value after recursively rendering its nested values.
+
+    Returns:
+        The marker-free value aligned to its preceding text.
+    """
+    literals, nested_values = _split_align_markers(value)
+    rendered = _fill_parts(
+        literals,
+        nested_values,
+        _render_align_value,
+    )
+    return _align_value(rendered, preceding_text)
+
+
+def _dedent_and_fill(
+    literals: list[str],
+    holes: list[_T],
+    render: Callable[[_T, str], str],
+) -> str:
+    """
+    Dedent literal structure, then render its opaque holes in one linear pass.
+
+    Raises:
+        RuntimeError: If hole metadata is inconsistent with the literal framework.
+
+    Returns:
+        The dedented and rendered string.
+    """
+    if len(literals) != len(holes) + 1:
+        message = "literal and hole counts are inconsistent"
+        raise RuntimeError(message)
+
+    dedented_literals = _dedent_literal_parts(literals)
+    return _fill_parts(dedented_literals, holes, render)
+
+
+def _dedent_marked_string(string: str) -> str:
+    """
+    Dedent static text without letting aligned values affect its indentation.
+
+    Returns:
+        The dedented string with deferred values restored and aligned.
+    """
+    literals, values = _split_align_markers(string)
+    return _dedent_and_fill(literals, values, _render_align_value)
 
 
 if sys.version_info >= (3, 14):
     from string.templatelib import Interpolation, Template, convert
-    from typing import LiteralString, TypeVar
+    from typing import LiteralString
 
-    T = TypeVar(name="T")
-
-    def _partition(it: Iterable[T], pred: Callable[[T], bool]) -> tuple[filter[T], filterfalse[T]]:
+    def _parse_format_spec(format_spec: str) -> tuple[str, bool]:
         """
-        Partition an iterable into two filters based on a predicate.
+        Remove the `noalign` directive from a format specification.
 
         Args:
-            it: The iterable to partition.
-            pred: A function that returns True for items in the first partition.
+            format_spec: The format specification, potentially containing `noalign`.
 
         Returns:
-            A tuple of (matching_filter, non_matching_filter) where matching_filter contains items
-            for which predicate returns True, and non_matching_filter contains items for which
-            predicate returns False.
-        """
-        it1, it2 = tee(it)
-        return filter(pred, it1), filterfalse(pred, it2)
-
-    def _parse_format_spec(format_spec: str) -> tuple[str, bool | None]:
-        """
-        Parse format spec to extract alignment-specific directives.
-
-        Extracts 'align' and 'noalign' directives from the format spec and returns the remaining
-        format spec along with the alignment override.
-
-        Args:
-            format_spec: The format specification string, potentially containing alignment
-                directives separated by colons.
-
-        Returns:
-            A tuple of (remaining_format_spec, align_override) where:
-            - remaining_format_spec: The format spec with alignment directives removed.
-            - align_override: True if 'align' was found, False if 'noalign' was found, or None if
-                neither was present. If multiple alignment specs are present, the last one takes
-                precedence.
+            The remaining format specification and whether column alignment is disabled.
         """
         specs = format_spec.split(":")
-
-        pred = set(AlignSpec).__contains__
-        dedent_specs, other_specs = _partition(specs, pred)
-        *_, dedent_spec = list(dedent_specs) or [None]
-
-        format_spec = ":".join(other_specs)
-
-        if dedent_spec is None:
-            return format_spec, None
-
-        return format_spec, AlignSpec(dedent_spec) == AlignSpec.ALIGN
+        return ":".join(spec for spec in specs if spec != _NOALIGN_SPEC), _NOALIGN_SPEC in specs
 
     def _handle_item(
-        item: str | Interpolation,
+        item: Interpolation[object],
         *,
         preceding_text: str,
-        align: bool,
     ) -> str:
         """
-        Process a single template item (string or interpolation).
-
-        For string items, returns them as-is. For interpolations, converts the value, applies format
-        specifications (extracting dedent directives), and optionally aligns multiline output.
+        Convert, format, and column-align one interpolation.
 
         Args:
-            item: Either a string literal or an Interpolation object.
+            item: The interpolation to render.
             preceding_text: The text that precedes this item, used for alignment.
-            align: Whether to align multiline values by default (can be overridden by format spec
-                directives).
+
+        Raises:
+            TypeError: If the rendered value contains `align()` markers.
 
         Returns:
             The processed string representation of the item.
         """
-        if isinstance(item, str):
-            return item
-
-        value = convert(cast("object", item.value), item.conversion)
-        align_override: bool | None = None
+        value = convert(item.value, item.conversion)
+        disable_alignment = False
 
         if item.format_spec:
-            format_spec, align_override = _parse_format_spec(item.format_spec)
+            format_spec, disable_alignment = _parse_format_spec(item.format_spec)
             if format_spec:
                 value = format(value, format_spec)
 
         value = str(value)
-        should_align = align_override if align_override is not None else align
-        if should_align:
+        if _ALIGN_MARKER.search(value):
+            message = "align() is only supported in f-strings; t-strings align automatically"
+            raise TypeError(message)
+        if not disable_alignment:
             value = _align_value(value, preceding_text)
 
         return value
 
+    def _dedent_template(template: Template) -> str:
+        """
+        Dedent template literals before rendering their interpolations.
+
+        Returns:
+            The dedented and rendered template.
+        """
+
+        def render_interpolation(item: Interpolation[object], preceding_text: str) -> str:
+            return _handle_item(item, preceding_text=preceding_text)
+
+        return _dedent_and_fill(
+            list(template.strings),
+            list(template.interpolations),
+            render_interpolation,
+        )
+
     def dedent(  # pyright: ignore[reportUnreachable]
         string: Template | LiteralString,
         /,
-        *,
-        align: bool | Missing = MISSING,
-        strip: Strip | Missing = MISSING,
     ) -> str:
         r'''
-        Dedent, strip, and align a template string.
+        Dedent a template string and column-align its interpolated values.
 
-        This function removes the minimum common indentation from all lines in the string,
-        preserving relative indentation. It supports both literal strings and t-strings (Template
-        objects) with interpolations.
+        This function removes the longest exact indentation prefix shared by all nonblank lines,
+        preserving relative indentation. A final whitespace-only line constrains the prefix like
+        the closing-quotes line in PEP 822. It supports both literal strings and t-strings
+        (`Template` objects) with interpolations.
 
-        For t-strings, interpolated values can include format spec directives:
-        - `{value:align}` - Enable alignment for this value
-        - `{value:noalign}` - Disable alignment for this value
-        - `{value:align:06d}` - Combine alignment directive with other format specs
+        For t-strings, interpolated values use column alignment by default. Use the format spec
+        directive:
+        - `{value:noalign}` - Disable column alignment for this value
+
+        `align()` is only for f-strings. A t-string interpolation whose rendered value contains
+        `align()` markers raises `TypeError`.
 
         Args:
             string: Template or literal string to dedent.
-            align: Whether to align multiline interpolated values by indenting subsequent lines to
-                match the indentation of the current line. Defaults to False. Can be overridden
-                per-value using format spec directives.
-            strip: Stripping mode to use.
-                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
-                - "all": Strips all surrounding whitespace.
-                - "none": Leaves whitespace exactly as-is after dedenting.
-
         Raises:
-            TypeError: If the input is not a string or Template object.
+            IndentationError: If a line is incompatible with the common indentation prefix.
+            TypeError: If the input is not a string or Template, or if a t-string interpolation
+                contains `align()` markers.
 
         Returns:
-            The dedented string with common leading whitespace removed, stripped according to
-            the `strip` mode.
+            The string with common leading whitespace and its opening newline removed. All other
+            whitespace is preserved.
 
         Example::
 
             >>> from dedent import dedent
             >>> result = dedent(t"""
             ...     Hello, {"World"}!
-            ... """)
+            ...     """)
             >>> print(result)
             Hello, World!
-        '''
-        align = align if not isinstance(align, Missing) else DEFAULT_ALIGN
-        strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
-
+        '''  # ruff: ignore[docstring-extraneous-exception]
         match string:
             case str() as formatted_string:
-                pass
+                return _dedent_marked_string(formatted_string)
             case Template() as template:
-                formatted_string = reduce(
-                    lambda acc, item: acc + _handle_item(item, preceding_text=acc, align=align),
-                    template,
-                    initial="",
-                )
+                return _dedent_template(template)
             case unknown if not TYPE_CHECKING:  # pyright: ignore[reportUnnecessaryComparison]
                 message = f"expected str or Template, not {type(unknown).__qualname__!r}"  # pyright: ignore[reportUnreachable]
                 raise TypeError(message)
-
-        formatted_string = process_align_markers(formatted_string)
-        formatted_string = _dedent_string(formatted_string)
-        return _strip_string(formatted_string, strip)
 
 else:
 
     def dedent(  # pyright: ignore[reportUnreachable]
         string: str,
         /,
-        *,
-        strip: Strip | Missing = MISSING,
     ) -> str:
         r'''
-        Dedent and strip a string, with optional multiline-value alignment.
+        Dedent a string and align marked multiline values.
 
-        This function removes the minimum common indentation from all lines in the string,
-        preserving relative indentation. Use `align()` to mark interpolated values for automatic
+        This function removes the longest exact indentation prefix shared by all nonblank lines,
+        preserving relative indentation. A final whitespace-only line constrains the prefix like
+        the closing-quotes line in PEP 822. Use `align()` to mark interpolated values for automatic
         indentation alignment inside f-strings.
 
         Args:
             string: String to dedent.
-            strip: Stripping mode to use.
-                - "smart" (default): Strips one leading and trailing newline-bounded blank segment.
-                - "all": Strips all surrounding whitespace.
-                - "none": Leaves whitespace exactly as-is after dedenting.
-
         Raises:
+            IndentationError: If a line is incompatible with the common indentation prefix.
             TypeError: If the input is not a string.
 
         Returns:
-            The dedented string with common leading whitespace removed.
+            The string with common leading whitespace and its opening newline removed. All other
+            whitespace is preserved.
 
         Example::
 
@@ -433,18 +510,14 @@ else:
             >>> result = dedent(f"""
             ...     List:
             ...         {align(items)}
-            ... """)
+            ...     """)
             >>> print(result)
             List:
                 - a
                 - b
-        '''
-        strip = strip if not isinstance(strip, Missing) else DEFAULT_STRIP
-
+        '''  # ruff: ignore[docstring-extraneous-exception]
         if not isinstance(string, str):  # pyright: ignore[reportUnnecessaryIsInstance]
             message = f"expected str, not {type(string).__qualname__!r}"
             raise TypeError(message)  # pyright: ignore[reportUnreachable]
 
-        formatted_string = process_align_markers(string)
-        formatted_string = _dedent_string(formatted_string)
-        return _strip_string(formatted_string, strip)
+        return _dedent_marked_string(string)
