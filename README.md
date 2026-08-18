@@ -231,8 +231,12 @@ dedent("\n  hello\n \t\n  world\n  ")
 
 Here the nonblank lines and closing line establish a two-space prefix. The middle line contains one space followed by a tab, so that exact prefix cannot be removed. Raising an error catches mixed or malformed indentation instead of silently changing or preserving ambiguous whitespace. A shorter space/tab-only line is valid when it matches the beginning of the prefix; it simply becomes empty. This mirrors PEP 822.
 
-`dedent()` omits one opening newline, as PEP 822 requires. It preserves all other whitespace. Use the closing-quote placement when you do not want a final newline.
+### Divergences from PEP 822
 
-Unlike PEP 822's proposed d-strings, `dedent()` runs after Python parses a string. Python has therefore already processed escape sequences. For t-strings, `dedent()` processes literal text before rendering interpolations.
+PEP 822 defines new literal syntax, while `dedent()` processes runtime values. The differences are:
 
-For runtime strings that use CRLF, `dedent` preserves each `\r\n` pair and excludes the terminal `\r` from indentation checks. Other whitespace characters, such as form feed and non-breaking space, remain content.
+- PEP 822 requires the opening quotes to be followed immediately by a newline. `dedent()` also accepts spaces or tabs before that first line ending and treats the whole line as the opener. To preserve an intentional leading blank line, put it after the opener line. Values without an opening line ending are also accepted.
+- Python has already processed escape sequences before `dedent()` receives a string. For t-strings, `dedent()` processes literal text before rendering interpolations.
+- Runtime strings can contain CRLF line endings. `dedent()` preserves each `\r\n` pair and excludes the terminal `\r` from indentation checks.
+
+All other whitespace, including form feed and non-breaking space, remains content. Use the closing-quote placement when you do not want a final newline.

@@ -32,6 +32,11 @@ bar
 """)
 
 
+def test_omits_whitespace_before_the_opening_newline() -> None:
+    assert dedent(" \n hello\n ") == snapshot("hello\n")
+    assert dedent("\t\n  hello\n  ") == snapshot("hello\n")
+
+
 def test_keeps_trailing_spaces_on_content() -> None:
     assert dedent(
         """

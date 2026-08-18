@@ -30,6 +30,11 @@ second
 
 
 @required_py314
+def test_tstring_omits_whitespace_before_the_opening_newline() -> None:
+    assert dedent(t(" \n {value}\n ", value="hello")) == snapshot("hello\n")
+
+
+@required_py314
 def test_tstring_format_spec() -> None:
     template_result = dedent(
         t(

@@ -16,6 +16,7 @@ _ALIGN_MARKER: Final = re.compile(
     rf"{_SEP}{_ALIGN_MARKER_PREFIX}:([a-f0-9]{{32}}){_SEP}(.*?){_SEP}{_ALIGN_MARKER_PREFIX}:\1{_SEP}",
     re.DOTALL,
 )
+_OPENING_LINE: Final = re.compile(r"^[ \t]*(\r\n|\r|\n)")
 
 
 def _align_value(value: str, preceding_text: str) -> str:
@@ -115,6 +116,23 @@ def _dedent_string(string: str) -> str:
             raise IndentationError(message)
 
     return "\n".join(dedented_lines)
+
+
+def _dedent_literal_structure(string: str) -> str:
+    """
+    Dedent a literal framework and omit its opening line.
+
+    Returns:
+        The dedented string. An initial line containing only spaces and tabs is
+        omitted when it ends with a line ending.
+    """
+    opening_line = _OPENING_LINE.match(string)
+    if opening_line is None:
+        return _dedent_string(string)
+
+    line_ending = opening_line.group(1)
+    normalized = line_ending + string[opening_line.end() :]
+    return _omit_opening_newline(_dedent_string(normalized))
 
 
 @final
@@ -312,7 +330,7 @@ def _dedent_and_fill(
         raise RuntimeError(message)
 
     if not holes:
-        return _omit_opening_newline(_dedent_string(literals[0]))
+        return _dedent_literal_structure(literals[0])
 
     marker_id = uuid4().hex
     framework_parts = [literals[0]]
@@ -321,7 +339,7 @@ def _dedent_and_fill(
         token = f"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:{index}{_SEP}"
         framework_parts.extend((token, literal))
 
-    framework = _omit_opening_newline(_dedent_string("".join(framework_parts)))
+    framework = _dedent_literal_structure("".join(framework_parts))
     hole_marker = re.compile(rf"{_SEP}{_HOLE_MARKER_PREFIX}:{marker_id}:(\d+){_SEP}")
     dedented_literals: list[str] = []
     last_end = 0
